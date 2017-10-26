@@ -1,2 +1,6 @@
 dist/*
+src/*.h.gch
 vgcore.*
+.vagrant
+./*.o
+out
