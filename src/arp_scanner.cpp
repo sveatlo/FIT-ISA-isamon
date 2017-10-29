@@ -37,12 +37,15 @@ void ARPScanner::start() {
                 break;
             }
 
-            for(auto dst = Utils::increment(src->get_network_address()); dst < src->get_broadcast_address() && this->keep_scanning; dst = Utils::increment(dst), cnt++) {
+            for(auto dst = src->get_network_address();
+                dst < src->get_broadcast_address() && this->keep_scanning;
+                dst = Utils::increment(dst), cnt++
+            ) {
                 auto dst_ipv4 = make_shared<IPv4>(dst, src->get_netmask());
                 if (dst != src->get_address()) {
                     this->send_request(src, dst_ipv4);
                 }
-                Utils::progress_bar((float)cnt / (float)total);
+                // Utils::progress_bar((float)cnt / (float)total);
             }
         }
         usleep(1*1000*1000);

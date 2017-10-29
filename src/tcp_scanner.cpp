@@ -24,9 +24,9 @@ void TCPScanner::prepare() {
     iph->ihl = 5;
     iph->version = 4;
     iph->tos = 0;
-    iph->tot_len = sizeof (struct ip) + sizeof (struct tcphdr);
-    iph->id = htons (54321);
-    iph->frag_off = htons(16384);
+    iph->tot_len = sizeof(struct ip) + sizeof(struct tcphdr);
+    iph->id = getpid();
+    iph->frag_off = 0;
     iph->ttl = 64;
     iph->protocol = IPPROTO_TCP;
     iph->check = 0;
@@ -34,7 +34,7 @@ void TCPScanner::prepare() {
     iph->check = Utils::checksum((unsigned short *) this->buffer, iph->tot_len >> 1);
 
     //TCP Header
-    tcph->source = htons (43591);
+    tcph->source = htons(43591);
     tcph->seq = htonl(1105024978);
     tcph->ack_seq = 0;
     tcph->doff = sizeof(struct tcphdr) / 4;
@@ -51,16 +51,16 @@ void TCPScanner::prepare() {
 
 void TCPScanner::bind_sockets() {
     if ((this->snd_sd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) < 0) {
-        Utils::print_error(104);
+        Utils::print_error(107);
     }
 
     int on = 1;
     if (setsockopt(this->snd_sd, IPPROTO_IP, IP_HDRINCL, (const int*)&on, sizeof (on)) < 0) {
-        Utils::print_error(104);
+        Utils::print_error(107);
     }
 
     if ((this->rcv_sd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) < 0) {
-        Utils::print_error(104);
+        Utils::print_error(108);
     }
 }
 
@@ -75,7 +75,6 @@ void TCPScanner::scan_host(shared_ptr<IPv4> ipv4) {
     struct in_addr dest_ip = {
         .s_addr = inet_addr(ipv4->get_address_string().c_str())
     };
-
     iph->daddr = dest_ip.s_addr;
 
     dest.sin_family = AF_INET;
@@ -87,7 +86,7 @@ void TCPScanner::scan_host(shared_ptr<IPv4> ipv4) {
         }
 
         tcph->dest = htons (port);
-        tcph->check = 0; // if you set a checksum to zero, your kernel's IP stack should fill in the correct checksum during transmission
+        tcph->check = 0;
 
         psh.saddr = iph->saddr;
         psh.daddr = dest.sin_addr.s_addr;
@@ -95,12 +94,12 @@ void TCPScanner::scan_host(shared_ptr<IPv4> ipv4) {
         psh.proto = IPPROTO_TCP;
         psh.len = htons( sizeof(struct tcphdr) );
 
-        memcpy(&psh.tcp , tcph , sizeof (struct tcphdr));
-        tcph->check = Utils::checksum( (unsigned short*) &psh , sizeof (struct pseudo_header));
+        memcpy(&psh.data.tcp, tcph, sizeof (struct tcphdr));
+        tcph->check = Utils::checksum((unsigned short*)&psh, sizeof(struct pseudo_header));
 
         //Send the packet
         if (sendto(this->snd_sd, datagram, sizeof(struct tcphdr) + sizeof(struct iphdr), 0, (struct sockaddr *) &dest, sizeof (dest)) < 0) {
-            Utils::print_error(104);
+            Utils::print_error(107);
         }
 
         Utils::progress_bar(float(this->cnt++) / (float)this->total);
@@ -121,7 +120,7 @@ void TCPScanner::recv_responses() {
             } else if(errno == EAGAIN) {
                 break;
             } else {
-                Utils::print_error(104);
+                Utils::print_error(108);
             }
         }
 

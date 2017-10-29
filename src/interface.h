@@ -31,7 +31,7 @@ public:
 private:
     string name;
     int index;
-    shared_ptr<MAC> mac_address;
+    shared_ptr<MAC> mac_address = nullptr;
     vector<shared_ptr<IPv4>> ipv4_addresses;
     vector<shared_ptr<IPv6>> ipv6_addresses;
 

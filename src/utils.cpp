@@ -13,6 +13,19 @@
 
 using namespace std;
 
+void Utils::log_info(string msg, string end) {
+    cerr << "\033[1;34m[INFO] " << msg << "\033[0m" << end;
+}
+
+void Utils::log_warn(string msg, string end) {
+    cerr << "\033[1;33m[WARN] " << msg << "\033[0m" << end;
+}
+
+void Utils::log_error(string msg, string end) {
+    cerr << "\033[1;31m[EROR] " << msg << "\033[0m" << end;
+}
+
+
 void Utils::print_error(int code, string error_string) {
     map<int, string> error_strings = {
             {0, "Run arp-scanner as root, stupid!"},
@@ -21,13 +34,19 @@ void Utils::print_error(int code, string error_string) {
             {101, "Interface error"},
             {102, "Socket bind error"},
             {103, "ARP scanning error"},
-            {104, "ARP receiving error"}
+            {104, "ARP receiving error"},
+            {105, "ICMP scanning error"},
+            {106, "ICMP receiving error"},
+            {107, "TCP scanning error"},
+            {108, "TCP receiving error"},
+            {150, "Cannot get MAC address for interface"},
+            {255, "Excessive use of Ctrl+c"}
     };
 
-    cerr << "\033[1;31m[EROR]" << (error_strings.count(code) > 0 ? error_strings[code] : "Unknown error") << "\033[0m. ";
+    cerr << "\033[1;31m[EROR]" << (error_strings.count(code) > 0 ? error_strings[code] : "Unknown error") << ".\033[0m ";
     if (error_string != "") {
         cerr << "\033[1;31m" << error_string << "\033[0m\n";
-    } else if(errno != 0) {
+    } else if(errno != 0 && code != 255) {
         cerr << "\033[1;31m" << strerror(errno) << "\033[0m\n";
     } else {
         cerr << endl;

@@ -5,6 +5,7 @@
 #include <netinet/ip6.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
+#include <netinet/udp.h>
 #include <bitset>
 #include <string>
 
@@ -12,6 +13,10 @@ using namespace std;
 
 class Utils {
 public:
+    static void log_info(string msg, string end = "\n");
+    static void log_warn(string msg, string end = "\n");
+    static void log_error(string msg, string end = "\n");
+
     static void print_error(int code, string error_string = "");
     static uint32_t ip_to_int(const string ip);
     static string int_to_ip(const uint32_t addr);
@@ -54,6 +59,16 @@ bool operator<(const bitset<N>& x, const bitset<N>& y)
     return false;
 }
 
+
+template<size_t N>
+bool operator>(const bitset<N>& x, const bitset<N>& y)
+{
+    for (size_t i = 0; i <= N - 1; i++) {
+        if (x[i] ^ y[i]) return y[i];
+    }
+    return false;
+}
+
 // for TCP/UDP checksum calculation
 struct pseudo_header {
     unsigned int saddr;
@@ -62,7 +77,10 @@ struct pseudo_header {
     unsigned char proto;
     unsigned short len;
 
-    struct tcphdr tcp;
+    union {
+        struct tcphdr tcp;
+        struct udphdr udp;
+    } data;
 };
 
 #endif

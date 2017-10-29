@@ -19,6 +19,8 @@
 #include "tcp_scanner.h"
 #include "udp_scanner.h"
 
+#define clrscr(); cout << "\x1b[2J\x1b[1;1H" << flush;
+
 using namespace std;
 
 void print_help();
@@ -34,12 +36,14 @@ int main (int argc, char **argv) {
         Utils::print_error(0);
     }
 
+    // clrscr();
 
     int c;
     bool arg_tcp = false, arg_udp = false;
     int arg_wait = -1;
     vector<int> ports;
-    string arg_interface, arg_network;
+    set<string> all_interfaces;
+    string arg_network;
 
     while (1) {
         static struct option long_options[] = {
@@ -78,7 +82,11 @@ int main (int argc, char **argv) {
             break;
 
         case 'i':
-            arg_interface = string(optarg);
+            try {
+                all_interfaces.insert(string(optarg));
+            } catch(...) {
+                Utils::print_error(1);
+            }
             break;
 
         case 'n':
@@ -121,6 +129,7 @@ int main (int argc, char **argv) {
 
     signal(SIGINT, interrupt_handler);
 
+    // process --network argument
     shared_ptr<IPv4> relevant_ipv4 = nullptr;
     if (arg_network != "") {
         string relevant_network_ip = "";
@@ -146,51 +155,84 @@ int main (int argc, char **argv) {
         relevant_ipv4 = make_shared<IPv4>(relevant_address, relevant_netmask);
     }
 
-    //get all relevant interfaces
-    vector<pair<shared_ptr<Interface>, bool>> interfaces;
-    bool any_has_network = false;
-    set<string> all_interfaces;
-    if (arg_interface == "") {
+    // start relevant scans on relevant interfaces
+    vector<shared_ptr<Interface>> interfaces;
+    map<string, bool> running_arp;
+
+    if (all_interfaces.size() == 0) {
         all_interfaces = Interface::get_all_interfaces();
-    } else {
-        all_interfaces.insert(arg_interface);
     }
+    // iterate over all interfaces
     for (auto interface_name : all_interfaces) {
-        auto interface = make_shared<Interface>(interface_name);
-        bool has_network = true;
-        if (relevant_ipv4 != nullptr) {
-            has_network = false;
-            for (auto ipv4 : interface->get_ipv4_addresses()) {
-                if(ipv4->get_network_address() == relevant_ipv4->get_network_address()) {
-                    has_network = true;
-                    break;
-                }
-            }
+        shared_ptr<Interface> interface;
+        try {
+            interface = make_shared<Interface>(interface_name);
+            interfaces.push_back(interface);
+        } catch(int) {
+            // ignore errored interface
+            continue;
         }
-        any_has_network |= has_network;
-        interfaces.push_back(make_pair(interface, has_network));
-    }
 
-    if (any_has_network) {
-        // one of the NICs is directly connected to the desired network => ARP requests
-        for (auto interface : interfaces) {
-            if(any_has_network && !interface.second) {
-                continue;
-            }
-
-            cerr << "\033[1;36;1m[INFO] Starting ARP scan for interface " << interface.first->get_name() << " \033[0m\n";
+        // cout << "Processing interface " << interface_name << endl;
+        if (relevant_ipv4 == nullptr) {
+            // cout << " (no relevant network) => network ARP SCAN\n";
+            // no --network argument => just run ARP scan
             shared_ptr<AbstractScanner> scanner;
-            scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface.first));
+            scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface));
 
             scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
-        }
-    } else if (relevant_ipv4 != nullptr) {
-        // no NIC is directly connected to the desired network => ICMP echo requests
-        cerr << "\033[1;36;1m[INFO] Starting ICMP scan\033[0m\n";
-        shared_ptr<AbstractScanner> scanner;
-        scanner = static_pointer_cast<AbstractScanner>(make_shared<ICMPScanner>(relevant_ipv4));
+            running_arp[interface_name] = true;
 
-        scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
+            // and do not process addresses
+            continue;
+        }
+
+        // check all of its ipv4 addresses
+        for (auto ipv4 : interface->get_ipv4_addresses()) {
+            // cout << "\twith IPv4 address: " << ipv4->get_network_address_string() << "/" << ipv4->get_netmask_string();
+            if (
+                running_arp[interface_name] == false &&
+                ipv4->get_network_address() == relevant_ipv4->get_network_address() &&
+                ipv4->get_broadcast_address() == relevant_ipv4->get_broadcast_address()
+            ) {
+                // cout << " => network ARP SCAN";
+                // same network => ARP scan
+                shared_ptr<AbstractScanner> scanner;
+                scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface));
+
+                scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
+                running_arp[interface_name] = true;
+            } else {
+                // subnet or totally different network
+                // cout << endl << "\t\t" << (running_arp[interface_name] == false) << endl;
+                // cout << "\t\t" << (ipv4->get_network_address().to_string() > relevant_ipv4->get_network_address().to_string()) << endl;
+                // cout << "\t\t" << (ipv4->get_broadcast_address().to_string() > relevant_ipv4->get_broadcast_address().to_string()) << endl << endl;
+                // cout << ipv4->get_network_address_string() << " vs " << relevant_ipv4->get_network_address_string() << endl;
+                // cout << ipv4->get_broadcast_address_string() << " vs " << relevant_ipv4->get_broadcast_address_string() << endl;
+                if (
+                    running_arp[interface_name] == false &&
+                    ipv4->get_network_address().to_string() >= relevant_ipv4->get_network_address().to_string() &&
+                    ipv4->get_broadcast_address().to_string() <= relevant_ipv4->get_broadcast_address().to_string()
+                ) {
+                    // cout << " => subnet ARP SCAN";
+                    // subnet => run ARP *and* ICMP scan
+                    shared_ptr<AbstractScanner> scanner;
+                    scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface));
+
+                    scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
+                    running_arp[interface_name] = true;
+                }
+
+                // cout << " => network ICMP scan";
+
+                // run ICMP scan
+                shared_ptr<AbstractScanner> scanner;
+                scanner = static_pointer_cast<AbstractScanner>(make_shared<ICMPScanner>(relevant_ipv4));
+
+                scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
+            }
+            // cout << endl;
+        }
     }
 
     for(auto scanner : scanners) {
@@ -222,8 +264,8 @@ int main (int argc, char **argv) {
     }
     if (arg_udp) {
         // start udp scanner
-        // shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<UDPScanner>(live_hosts, ports, &hosts_mtx));
-        // scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
+        shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<UDPScanner>(live_hosts, ports, &hosts_mtx));
+        scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
     }
 
     // wait for them to join back
@@ -257,10 +299,16 @@ void print_hosts() {
 
 
 void interrupt_handler(int type) {
+    static int exit_counter = 0;
     if (type != SIGINT) {
         return;
     }
 
+    exit_counter++;
+    if(exit_counter == 3) {
+        cerr << "ok, ok... calm down. exiting now" << endl;
+        Utils::print_error(255);
+    }
     for(auto scanner : scanners) {
         scanner.first->stop();
     }

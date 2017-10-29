@@ -34,7 +34,8 @@ set<string> Interface::get_all_interfaces() {
     struct ifaddrs * ifa;
     int n;
     for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
-        if (!ifa->ifa_addr || !ifa->ifa_addr->sa_family) {
+        // skip device if no addr or family, or device not up, or device is a loopback, or device is not running
+        if (!ifa->ifa_addr || !ifa->ifa_addr->sa_family || !(ifa->ifa_flags & IFF_UP) || !!(ifa->ifa_flags & IFF_LOOPBACK) || !(ifa->ifa_flags & IFF_RUNNING)) {
             continue;
         }
 
@@ -63,6 +64,7 @@ void Interface::populate_info() {
         if(string(ifa->ifa_name) != this->name || ifa->ifa_addr == NULL) {
             continue;
         }
+
 
         switch (family) {
             case AF_PACKET:
@@ -129,6 +131,10 @@ void Interface::populate_info() {
     this->index = ifr.ifr_ifindex;
 
     close(sd);
+
+    if(this->mac_address == nullptr) {
+        throw 150;
+    }
 }
 
 bitset<MAC_BITLENGTH> Interface::get_mac_address() {
