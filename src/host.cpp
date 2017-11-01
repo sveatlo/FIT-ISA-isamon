@@ -16,14 +16,14 @@ void Host::add_ipv4(shared_ptr<IPv4> _ipv4) {
     }
 }
 
-void Host::add_open_port(int port_no, bool is_tcp, bool is_udp) {
-    if(this->ports.find(port_no) == this->ports.end()) {
-        this->ports[port_no].second = true;
-    }
-
-    this->ports[port_no].first |= is_tcp;
-    this->ports[port_no].second &= is_udp;
+void Host::set_tcp_port(int port_no, bool open) {
+    this->ports[port_no].first = open;
 }
+
+void Host::set_udp_port(int port_no, bool open) {
+    this->ports[port_no].second = open;
+}
+
 
 void Host::set_mac(shared_ptr<MAC> _mac) {
     this->mac = _mac;
@@ -45,6 +45,10 @@ void Host::print_info() {
     }
     cout << (this->ports.size() > 0 ? ": \n" : "\n");
     for (auto port : this->ports) {
+        if (!port.second.first && !port.second.second) {
+            continue;
+        }
+
         cout << "  " << port.first << ": ";
         if (port.second.first) {
             cout << "TCP";
@@ -54,9 +58,9 @@ void Host::print_info() {
                 cout << "(" << service->s_name << ")";
             }
 
-            cout << (!port.second.second ? "+" : "");
+            cout << (port.second.second ? "+" : "");
         }
-        if (!port.second.second) {
+        if (port.second.second) {
             cout << "UDP";
 
             struct servent* service = getservbyport(port.second.second, "UDP");

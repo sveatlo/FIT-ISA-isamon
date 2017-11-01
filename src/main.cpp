@@ -23,6 +23,7 @@
 
 using namespace std;
 
+void run(int argc, char** argv);
 void print_help();
 void print_hosts();
 void interrupt_handler(int type);
@@ -31,253 +32,269 @@ bool interrupted = false;
 vector<pair<shared_ptr<AbstractScanner>, shared_ptr<thread>>> scanners; // vector of pairs of scanner and its thread
 map<string, shared_ptr<Host>> live_hosts; // vector of live (responding) hosts found using one of the techniques below
 
-int main (int argc, char **argv) {
+int main (int argc, char** argv) {
     if(getuid()) {
         Utils::print_error(0);
     }
 
     // clrscr();
+    try {
+        run(argc, argv);
+    } catch(int err) {
+        Utils::print_error(err);
+    }
+}
 
-    int c;
-    bool arg_tcp = false, arg_udp = false;
-    int arg_wait = -1;
-    vector<int> ports;
-    set<string> all_interfaces;
-    string arg_network;
+void run(int argc, char** argv) {
 
-    while (1) {
-        static struct option long_options[] = {
-            {"tcp", no_argument, 0, 't'},
-            {"udp", no_argument, 0, 'u'},
-            {"help", no_argument, 0, 'h'},
-            {"interface", required_argument, 0, 'i'},
-            {"network", required_argument, 0, 'n'},
-            {"port", required_argument, 0, 'p'},
-            {"wait", required_argument, 0, 'w'},
-            {0, 0, 0, 0}
-        };
-        /* getopt_long stores the option index here. */
-        int option_index = 0;
+        int c;
+        bool arg_tcp = false, arg_udp = false;
+        int arg_wait = -1;
+        vector<int> ports;
+        set<string> all_interfaces;
+        string arg_network;
 
-        c = getopt_long(argc, argv, "hi:tup:w:", long_options, &option_index);
+        while (1) {
+            static struct option long_options[] = {
+                {"help", no_argument, 0, 'h'},
+                {"tcp", no_argument, 0, 't'},
+                {"udp", no_argument, 0, 'u'},
+                {"interface", required_argument, 0, 'i'},
+                {"network", required_argument, 0, 'n'},
+                {"port", required_argument, 0, 'p'},
+                {"wait", required_argument, 0, 'w'},
+                {0, 0, 0, 0}
+            };
+            /* getopt_long stores the option index here. */
+            int option_index = 0;
 
-        /* Detect the end of the options. */
-        if (c == -1)
-            break;
+            c = getopt_long(argc, argv, "htui:n:p:w:", long_options, &option_index);
 
-        switch (c) {
-        case 0:
-            /* If this option set a flag, do nothing else now. */
-            if (long_options[option_index].flag != 0)
+            /* Detect the end of the options. */
+            if (c == -1)
                 break;
-            printf ("option %s", long_options[option_index].name);
-            if (optarg)
-                printf (" with arg %s", optarg);
-            printf ("\n");
-            break;
 
-        case 'h':
+            switch (c) {
+            case 0:
+                /* If this option set a flag, do nothing else now. */
+                if (long_options[option_index].flag != 0)
+                    break;
+                printf ("option %s", long_options[option_index].name);
+                if (optarg)
+                    printf (" with arg %s", optarg);
+                printf ("\n");
+                break;
+
+            case 'h':
+                print_help();
+                return;
+                break;
+
+            case 'i':
+                try {
+                    all_interfaces.insert(string(optarg));
+                } catch(...) {
+                    Utils::print_error(1);
+                }
+                break;
+
+            case 'n':
+                arg_network = string(optarg);
+                break;
+
+            case 'p':
+                try {
+                    ports.push_back(stoi(optarg));
+                } catch (...) {
+                    Utils::print_error(1);
+                }
+                break;
+
+            case 'w':
+                try {
+                    arg_wait = stoi(optarg);
+                } catch (...) {
+                    Utils::print_error(1);
+                }
+                break;
+
+            case 't':
+                arg_tcp = true;
+                break;
+
+            case 'u':
+                arg_udp = true;
+                break;
+            }
+        }
+
+        /* Print any remaining command line arguments (not options). */
+        if (optind < argc) {
             print_help();
-            return 0;
-            break;
+            Utils::print_error(1);
+        }
 
-        case 'i':
+        (void)arg_wait;
+
+        signal(SIGINT, interrupt_handler);
+
+        // process --network argument
+        shared_ptr<IPv4> relevant_ipv4 = nullptr;
+        if (arg_network != "") {
+            string relevant_network_ip = "";
+            size_t relevant_network_netmask = 0;
+
+            size_t pos = arg_network.find("/");
+            if (pos == string::npos) {
+                // Utils::print_error(1, "Specified network is not in a valid format. Try something like 127.0.0.1/8");
+                // assume /32
+                arg_network += "/32";
+                pos = arg_network.find("/");
+            }
+
             try {
-                all_interfaces.insert(string(optarg));
+                relevant_network_netmask = stoul(arg_network.substr(pos + 1));
+                relevant_network_ip = arg_network.substr(0, pos);
             } catch(...) {
-                Utils::print_error(1);
+                Utils::print_error(1, "Specified network is not in a valid format. Try something like 127.0.0.1/8");
             }
-            break;
 
-        case 'n':
-            arg_network = string(optarg);
-            break;
+            bitset<IPV4_BITLENGTH> relevant_netmask, relevant_address;
+            for (size_t i = 0; i < relevant_network_netmask; i++) {
+                relevant_netmask.set(IPV4_BITLENGTH - i - 1);
+            }
+            relevant_address = bitset<IPV4_BITLENGTH>(Utils::ip_to_int(relevant_network_ip));
+            relevant_ipv4 = make_shared<IPv4>(relevant_address, relevant_netmask);
+        }
 
-        case 'p':
+        // start relevant scans on relevant interfaces
+        vector<shared_ptr<Interface>> interfaces;
+        map<string, bool> running_arp;
+
+        if (all_interfaces.size() == 0) {
+            all_interfaces = Interface::get_all_interfaces();
+        }
+        // iterate over all interfaces
+        for (auto interface_name : all_interfaces) {
+            shared_ptr<Interface> interface;
             try {
-                ports.push_back(stoi(optarg));
-            } catch (...) {
-                Utils::print_error(1);
+                interface = make_shared<Interface>(interface_name);
+                interfaces.push_back(interface);
+            } catch(int) {
+                // ignore errored interface
+                continue;
             }
-            break;
 
-        case 'w':
-            try {
-                arg_wait = stoi(optarg);
-            } catch (...) {
-                Utils::print_error(1);
-            }
-            break;
-
-        case 't':
-            arg_tcp = true;
-            break;
-
-        case 'u':
-            arg_udp = true;
-            break;
-        }
-    }
-
-    /* Print any remaining command line arguments (not options). */
-    if (optind < argc) {
-        print_help();
-        Utils::print_error(1);
-    }
-
-    (void)arg_wait;
-
-    signal(SIGINT, interrupt_handler);
-
-    // process --network argument
-    shared_ptr<IPv4> relevant_ipv4 = nullptr;
-    if (arg_network != "") {
-        string relevant_network_ip = "";
-        size_t relevant_network_netmask = 0;
-
-        size_t pos = arg_network.find("/");
-        if (pos == string::npos) {
-            Utils::print_error(1, "Specified network is not in a valid format. Try something like 127.0.0.1/8");
-        }
-
-        try {
-            relevant_network_netmask = stoul(arg_network.substr(pos + 1));
-            relevant_network_ip = arg_network.substr(0, pos);
-        } catch(...) {
-            Utils::print_error(1, "Specified network is not in a valid format. Try something like 127.0.0.1/8");
-        }
-
-        bitset<IPV4_BITLENGTH> relevant_netmask, relevant_address;
-        for (size_t i = 0; i < relevant_network_netmask; i++) {
-            relevant_netmask.set(IPV4_BITLENGTH - i - 1);
-        }
-        relevant_address = bitset<IPV4_BITLENGTH>(Utils::ip_to_int(relevant_network_ip));
-        relevant_ipv4 = make_shared<IPv4>(relevant_address, relevant_netmask);
-    }
-
-    // start relevant scans on relevant interfaces
-    vector<shared_ptr<Interface>> interfaces;
-    map<string, bool> running_arp;
-
-    if (all_interfaces.size() == 0) {
-        all_interfaces = Interface::get_all_interfaces();
-    }
-    // iterate over all interfaces
-    for (auto interface_name : all_interfaces) {
-        shared_ptr<Interface> interface;
-        try {
-            interface = make_shared<Interface>(interface_name);
-            interfaces.push_back(interface);
-        } catch(int) {
-            // ignore errored interface
-            continue;
-        }
-
-        // cout << "Processing interface " << interface_name << endl;
-        if (relevant_ipv4 == nullptr) {
-            // cout << " (no relevant network) => network ARP SCAN\n";
-            // no --network argument => just run ARP scan
-            shared_ptr<AbstractScanner> scanner;
-            scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface));
-
-            scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
-            running_arp[interface_name] = true;
-
-            // and do not process addresses
-            continue;
-        }
-
-        // check all of its ipv4 addresses
-        for (auto ipv4 : interface->get_ipv4_addresses()) {
-            // cout << "\twith IPv4 address: " << ipv4->get_network_address_string() << "/" << ipv4->get_netmask_string();
-            if (
-                running_arp[interface_name] == false &&
-                ipv4->get_network_address() == relevant_ipv4->get_network_address() &&
-                ipv4->get_broadcast_address() == relevant_ipv4->get_broadcast_address()
-            ) {
-                // cout << " => network ARP SCAN";
-                // same network => ARP scan
+            // cout << "Processing interface " << interface_name << endl;
+            if (relevant_ipv4 == nullptr) {
+                // cout << " (no relevant network) => network ARP SCAN\n";
+                // no --network argument => just run ARP scan
                 shared_ptr<AbstractScanner> scanner;
                 scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface));
 
                 scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
                 running_arp[interface_name] = true;
-            } else {
-                // subnet or totally different network
-                // cout << endl << "\t\t" << (running_arp[interface_name] == false) << endl;
-                // cout << "\t\t" << (ipv4->get_network_address().to_string() > relevant_ipv4->get_network_address().to_string()) << endl;
-                // cout << "\t\t" << (ipv4->get_broadcast_address().to_string() > relevant_ipv4->get_broadcast_address().to_string()) << endl << endl;
-                // cout << ipv4->get_network_address_string() << " vs " << relevant_ipv4->get_network_address_string() << endl;
-                // cout << ipv4->get_broadcast_address_string() << " vs " << relevant_ipv4->get_broadcast_address_string() << endl;
+
+                // and do not process addresses
+                continue;
+            }
+
+            // check all of its ipv4 addresses
+            for (auto ipv4 : interface->get_ipv4_addresses()) {
+                // cout << "\twith IPv4 address: " << ipv4->get_network_address_string() << "/" << ipv4->get_netmask_string();
                 if (
                     running_arp[interface_name] == false &&
-                    ipv4->get_network_address().to_string() >= relevant_ipv4->get_network_address().to_string() &&
-                    ipv4->get_broadcast_address().to_string() <= relevant_ipv4->get_broadcast_address().to_string()
+                    ipv4->get_network_address() == relevant_ipv4->get_network_address() &&
+                    ipv4->get_broadcast_address() == relevant_ipv4->get_broadcast_address()
                 ) {
-                    // cout << " => subnet ARP SCAN";
-                    // subnet => run ARP *and* ICMP scan
+                    // cout << " => network ARP SCAN";
+                    // same network => ARP scan
                     shared_ptr<AbstractScanner> scanner;
                     scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface));
 
                     scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
                     running_arp[interface_name] = true;
+                } else {
+                    // subnet or totally different network
+                    // cout << endl << "\t\t" << (running_arp[interface_name] == false) << endl;
+                    // cout << "\t\t" << (ipv4->get_network_address().to_string() > relevant_ipv4->get_network_address().to_string()) << endl;
+                    // cout << "\t\t" << (ipv4->get_broadcast_address().to_string() > relevant_ipv4->get_broadcast_address().to_string()) << endl << endl;
+                    // cout << ipv4->get_network_address_string() << " vs " << relevant_ipv4->get_network_address_string() << endl;
+                    // cout << ipv4->get_broadcast_address_string() << " vs " << relevant_ipv4->get_broadcast_address_string() << endl;
+                    if (
+                        running_arp[interface_name] == false &&
+                        ipv4->get_network_address().to_string() >= relevant_ipv4->get_network_address().to_string() &&
+                        ipv4->get_broadcast_address().to_string() <= relevant_ipv4->get_broadcast_address().to_string()
+                    ) {
+                        // cout << " => subnet ARP SCAN";
+                        // subnet => run ARP *and* ICMP scan
+                        shared_ptr<AbstractScanner> scanner;
+                        scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface));
+
+                        scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
+                        running_arp[interface_name] = true;
+                    }
+
+                    // cout << " => network ICMP scan";
+
+                    // run ICMP scan
+                    shared_ptr<AbstractScanner> scanner;
+                    scanner = static_pointer_cast<AbstractScanner>(make_shared<ICMPScanner>(relevant_ipv4));
+
+                    scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
                 }
-
-                // cout << " => network ICMP scan";
-
-                // run ICMP scan
-                shared_ptr<AbstractScanner> scanner;
-                scanner = static_pointer_cast<AbstractScanner>(make_shared<ICMPScanner>(relevant_ipv4));
-
-                scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
+                // cout << endl;
             }
-            // cout << endl;
         }
-    }
 
-    for(auto scanner : scanners) {
-        scanner.second->join();
-        auto scanner_result = scanner.first->get_hosts();
-        live_hosts.insert(scanner_result.begin(), scanner_result.end());
-    }
-    cerr << "\033[1;36;1m[INFO] Finished scanning for live hosts. Found " << live_hosts.size() << " live hosts:\033[0m\n";
+        for(auto scanner : scanners) {
+            scanner.second->join();
+            auto scanner_result = scanner.first->get_hosts();
+            live_hosts.insert(scanner_result.begin(), scanner_result.end());
+        }
+        cerr << "\033[1;36;1m[INFO] Finished scanning for live hosts. Found " << live_hosts.size() << " live hosts:\033[0m\n";
 
-    if(interrupted) {
+        if(interrupted) {
+            print_hosts();
+            return;
+        }
+
+        scanners.clear();
+
+        // prepare ports to be scanned
+        if (ports.size() == 0) {
+            ports.resize(65536);
+            iota(ports.begin(), ports.end(), 1);
+        }
+
+        mutex hosts_mtx;
+        shared_ptr<Interface> interface = nullptr;
+        if(interfaces.size() == 1) {
+            interface = interfaces.front();
+        }
+
+        if(arg_tcp) {
+            cerr << "\033[1;36;1m[INFO] Starting TCP PORT scan\033[0m\n";
+            // start tcp scanner
+            shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<TCPScanner>(live_hosts, ports, &hosts_mtx, interface));
+            scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
+        }
+        if (arg_udp) {
+            // start udp scanner
+            shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<UDPScanner>(live_hosts, ports, &hosts_mtx, interface));
+            scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
+        }
+
+        // wait for them to join back
+        for(auto scanner : scanners) {
+            scanner.second->join();
+            auto scanner_result = scanner.first->get_hosts();
+            live_hosts.insert(scanner_result.begin(), scanner_result.end());
+        }
+
+        // PRINT OUT ALL HOSTS AND THEIR INFO
         print_hosts();
-        return 0;
-    }
-
-    scanners.clear();
-
-    // prepare ports to be scanned
-    if (ports.size() == 0) {
-        ports.resize(65536);
-        iota(ports.begin(), ports.end(), 1);
-    }
-
-    mutex hosts_mtx;
-    if(arg_tcp) {
-        cerr << "\033[1;36;1m[INFO] Starting TCP PORT scan\033[0m\n";
-        // start tcp scanner
-        shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<TCPScanner>(live_hosts, ports, &hosts_mtx));
-        scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
-    }
-    if (arg_udp) {
-        // start udp scanner
-        shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<UDPScanner>(live_hosts, ports, &hosts_mtx));
-        scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
-    }
-
-    // wait for them to join back
-    for(auto scanner : scanners) {
-        scanner.second->join();
-        auto scanner_result = scanner.first->get_hosts();
-        live_hosts.insert(scanner_result.begin(), scanner_result.end());
-    }
-
-    // PRINT OUT ALL HOSTS AND THEIR INFO
-    print_hosts();
-    return 0;
+        return;
 }
 
 void print_help() {

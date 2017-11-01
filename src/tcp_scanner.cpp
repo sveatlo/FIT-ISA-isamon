@@ -1,8 +1,12 @@
 #include <arpa/inet.h>
-#include <netinet/tcp.h>
-#include <netinet/ip.h>
-#include <sys/socket.h>
+#include <bitset>
 #include <iostream>
+#include <linux/if_packet.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/tcp.h>
+#include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
 #include "tcp_scanner.h"
@@ -34,8 +38,6 @@ void TCPScanner::prepare() {
     iph->check = Utils::checksum((unsigned short *) this->buffer, iph->tot_len >> 1);
 
     //TCP Header
-    tcph->source = htons(43591);
-    tcph->seq = htonl(1105024978);
     tcph->ack_seq = 0;
     tcph->doff = sizeof(struct tcphdr) / 4;
     tcph->fin = 0;
@@ -59,12 +61,24 @@ void TCPScanner::bind_sockets() {
         Utils::print_error(107);
     }
 
+    if(this->interface != nullptr) {
+        struct ifreq ifr;
+
+        memset(&ifr, 0, sizeof(ifr));
+        if (setsockopt(this->snd_sd, SOL_SOCKET, SO_BINDTODEVICE, this->interface->get_name().c_str(), sizeof(ifr)) < 0) {
+            Utils::print_error(105);
+        }
+    }
+
     if ((this->rcv_sd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) < 0) {
         Utils::print_error(108);
     }
 }
 
-void TCPScanner::scan_host(shared_ptr<IPv4> ipv4) {
+void TCPScanner::scan_host(shared_ptr<Host>& host, shared_ptr<IPv4>& ipv4) {
+    (void)host;
+    static int port_counter = 0;
+
     char datagram[sizeof(this->buffer)];
     memcpy(datagram, this->buffer, sizeof(this->buffer));
     struct iphdr *iph = (struct iphdr *)datagram;
@@ -85,6 +99,11 @@ void TCPScanner::scan_host(shared_ptr<IPv4> ipv4) {
             break;
         }
 
+        iph->id = htons(getuid() + (++port_counter));
+        iph->check = 0;
+
+        tcph->seq = htonl(rand());
+        tcph->source = htons(rand() % 4096 + 61440);
         tcph->dest = htons (port);
         tcph->check = 0;
 
@@ -139,7 +158,7 @@ void TCPScanner::recv_responses() {
 
             if(tcph->syn == 1 && tcph->ack == 1 && this->hosts.find(source_ip->get_address_string()) != this->hosts.end()) {
                 this->hosts_mutex->lock();
-                this->hosts[source_ip->get_address_string()]->add_open_port(ntohs(tcph->source), true);
+                this->hosts[source_ip->get_address_string()]->set_tcp_port(ntohs(tcph->source), true);
                 this->hosts_mutex->unlock();
             }
         }

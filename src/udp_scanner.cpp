@@ -1,10 +1,11 @@
 #include <arpa/inet.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
-#include <netinet/ip.h>
-#include <netinet/ip_icmp.h>
-#include <sys/socket.h>
 #include <iostream>
+#include <linux/if_packet.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/tcp.h>
+#include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
 #include "udp_scanner.h"
@@ -27,7 +28,6 @@ void UDPScanner::prepare() {
     iph->version = 4;
     iph->tos = 0;
     iph->tot_len = sizeof (struct ip) + sizeof (struct udphdr);
-    iph->id = htons(54123);
     iph->frag_off = htons(16384);
     iph->ttl = 64;
     iph->protocol = IPPROTO_UDP;
@@ -36,27 +36,36 @@ void UDPScanner::prepare() {
     iph->check = Utils::checksum((unsigned short *) this->buffer, iph->tot_len >> 1);
 
     //TCP Header
-    udph->source = htons(47823);
     udph->len = htons(8);
     udph->check = 0;
 }
 
 void UDPScanner::bind_sockets() {
     if ((this->snd_sd = socket(AF_INET, SOCK_RAW, IPPROTO_UDP)) < 0) {
-        Utils::print_error(104);
+        Utils::print_error(109);
     }
 
     // int on = 1;
     // if (setsockopt(this->snd_sd, IPPROTO_IP, IP_HDRINCL, (const int*)&on, sizeof(on)) < 0) {
     //     Utils::print_error(104);
     // }
+    if(this->interface != nullptr) {
+        struct ifreq ifr;
+
+        memset(&ifr, 0, sizeof(ifr));
+        if (setsockopt(this->snd_sd, SOL_SOCKET, SO_BINDTODEVICE, this->interface->get_name().c_str(), sizeof(ifr)) < 0) {
+            Utils::print_error(109);
+        }
+    }
 
     if ((this->rcv_sd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0) {
-        Utils::print_error(104);
+        Utils::print_error(110);
     }
 }
 
-void UDPScanner::scan_host(shared_ptr<IPv4> ipv4) {
+void UDPScanner::scan_host(shared_ptr<Host> &host, shared_ptr<IPv4> &ipv4) {
+    static int port_counter = 0;
+
     char datagram[sizeof(this->buffer)];
     memcpy(datagram, this->buffer, sizeof(this->buffer));
     struct iphdr *iph = (struct iphdr *)datagram;
@@ -77,7 +86,12 @@ void UDPScanner::scan_host(shared_ptr<IPv4> ipv4) {
             break;
         }
 
+        iph->id = htons(getuid() + (++port_counter));
+        iph->check = 0;
+
         udph->dest = htons(port);
+        udph->source = htons(rand() % 4096 + 61440);
+        udph->check = 0;
 
         psh.saddr = iph->saddr;
         psh.daddr = dest.sin_addr.s_addr;
@@ -90,11 +104,15 @@ void UDPScanner::scan_host(shared_ptr<IPv4> ipv4) {
 
         //Send the packet
         if (sendto(this->snd_sd, udph, sizeof(struct udphdr), 0, (struct sockaddr*)&dest, sizeof(dest)) < 0) {
-            Utils::print_error(104);
+            Utils::print_error(109);
         }
 
-        usleep(1.5*1000*1000);
-        Utils::progress_bar(float(this->cnt++) / (float)this->total);
+        this->hosts_mutex->lock();
+        host->set_udp_port(port, true);
+        this->hosts_mutex->unlock();
+
+        usleep(1.1*1000*1000);
+        // Utils::progress_bar(float(this->cnt++) / (float)this->total);
     }
 }
 
@@ -111,20 +129,35 @@ void UDPScanner::recv_responses() {
             if(errno == EINTR) {
                 continue; // Something weird happened, but let's try again.
             } else {
-                Utils::print_error(106);
+                Utils::print_error(110);
             }
         }
 
         struct iphdr *ip = (struct iphdr*)ether_frame;
-        struct icmphdr *icmp = (struct icmphdr*)ether_frame+ip->ihl*4;
+        struct icmphdr *icmp = (struct icmphdr*)(ether_frame + ip->ihl*4);
 
-        // BUG: ICMP msg TTL exceeded still gets throug this
-        // TODO: fix
-        if(ip->protocol != IPPROTO_ICMP && icmp->type != ICMP_ECHOREPLY) {
+        if(ip->protocol != IPPROTO_ICMP || icmp->type != ICMP_DEST_UNREACH) {
             continue;
         }
 
-        cout << "RECEIVED ICMP MESSAGE" << endl;
+        // *(struct udphdr*)(icmp + sizeof(struct icmphdr) + sizeof(struct iphdr))
+        // *(struct iphdr*)(icmp + sizeof(struct icmphdr))
+
+        struct iphdr *ip2 = (struct iphdr*)(((uint8_t*)icmp) + sizeof(struct icmphdr));
+        struct udphdr *udp = (struct udphdr*)(((uint8_t*)ip2) + ip2->ihl*4);
+
+        unsigned char ip_arr[IPV4_LENGTH];
+        unsigned long uip = ntohl(ip->saddr);
+        unsigned char* p = (unsigned char*)&uip;
+        for (int i = 0; i < IPV4_LENGTH; i++) {
+            ip_arr[i] = p[IPV4_LENGTH - 1 - i];
+        }
+        auto source_ip = make_shared<IPv4>(ip_arr, nullptr);
+        if(this->hosts.find(source_ip->get_address_string()) != this->hosts.end()) {
+            this->hosts_mutex->lock();
+            this->hosts[source_ip->get_address_string()]->set_udp_port(ntohs(udp->dest), false);
+            this->hosts_mutex->unlock();
+        }
     }
 
     free(ether_frame);

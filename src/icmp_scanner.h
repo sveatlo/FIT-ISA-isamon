@@ -11,7 +11,7 @@ using namespace std;
 
 class ICMPScanner : public AbstractScanner {
 public:
-    ICMPScanner(shared_ptr<IPv4> _ipv4);
+    ICMPScanner(shared_ptr<IPv4> _ipv4, shared_ptr<Interface> _if = nullptr);
 
     void start();
     void stop();
@@ -20,6 +20,7 @@ public:
 private:
     bool keep_scanning = true;
     shared_ptr<IPv4> network;
+    shared_ptr<Interface> interface;
     int rcv_sd;
     int snd_sd;
 

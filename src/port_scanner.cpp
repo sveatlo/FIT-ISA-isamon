@@ -4,11 +4,12 @@
 #include <unistd.h>
 #include "port_scanner.h"
 
-PortScanner::PortScanner(map<string, shared_ptr<Host>> &_hosts, vector<int> &_ports, mutex* _hosts_mutex) {
+PortScanner::PortScanner(map<string, shared_ptr<Host>> &_hosts, vector<int> &_ports, mutex* _hosts_mutex, shared_ptr<Interface> _if) {
     this->hosts = _hosts;
     this->hosts_mutex = _hosts_mutex;
     this->ports = _ports;
     this->total = this->hosts.size()*this->ports.size() - 1;
+    this->interface = _if;
 }
 
 
@@ -21,12 +22,12 @@ void PortScanner::start() {
         }
 
         for(auto ipv4 : host.second->get_ipv4_addresses()) {
-            this->scan_host(ipv4.second);
+            this->scan_host(host.second, ipv4.second);
         }
     }
     cout << endl;
 
-    usleep(2*1000*1000);
+    usleep(1.1*1000*1000);
     this->stop();
     t.join();
 }

@@ -5,6 +5,7 @@
 #include <memory>
 #include <mutex>
 #include <vector>
+#include "interface.h"
 #include "host.h"
 #include "abstract_scanner.h"
 
@@ -12,7 +13,7 @@ using namespace std;
 
 class PortScanner : public AbstractScanner {
 public:
-    PortScanner(map<string, shared_ptr<Host>> &_hosts, vector<int> &_ports, mutex* _hosts_mutex);
+    PortScanner(map<string, shared_ptr<Host>> &_hosts, vector<int> &_ports, mutex* _hosts_mutex, shared_ptr<Interface> _if = nullptr);
 
     void start();
     void stop();
@@ -26,9 +27,10 @@ protected:
     int snd_sd;
     vector<int> ports;
     mutex* hosts_mutex;
+    shared_ptr<Interface> interface;
 
     virtual void prepare() =0;
-    virtual void scan_host(shared_ptr<IPv4>) =0;
+    virtual void scan_host(shared_ptr<Host>&, shared_ptr<IPv4>&) =0;
     virtual void recv_responses() =0;
 };
 

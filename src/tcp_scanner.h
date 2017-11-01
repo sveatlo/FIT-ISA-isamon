@@ -11,8 +11,8 @@ using namespace std;
 
 class TCPScanner : public PortScanner {
 public:
-    TCPScanner(map<string, shared_ptr<Host>> &_hosts, vector<int> &_ports, mutex* _hosts_mutex) :
-        PortScanner(_hosts, _ports, _hosts_mutex) {}
+    TCPScanner(map<string, shared_ptr<Host>> &_hosts, vector<int> &_ports, mutex* _hosts_mutex, shared_ptr<Interface> _if = nullptr) :
+        PortScanner(_hosts, _ports, _hosts_mutex, _if) {}
 
 private:
     unsigned char buffer[MAXPACKET];
@@ -20,7 +20,7 @@ private:
 
     void prepare();
     void bind_sockets();
-    void scan_host(shared_ptr<IPv4> host_ipv4);
+    void scan_host(shared_ptr<Host>&, shared_ptr<IPv4>&);
     void recv_responses();
 };
 

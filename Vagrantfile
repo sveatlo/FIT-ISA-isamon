@@ -16,10 +16,11 @@ Vagrant.configure("2") do |config|
   config.vm.boot_timeout = 30
   config.vm.hostname = "isa2017"
   config.vm.post_up_message = "Welcome to ISA 2017 virtual machine."
-  
-  config.vm.provider :virtualbox do |vb|
-        vb.name = "isa2017"
-  end
+  config.vm.provision "file", source: ".", destination: "$HOME/isamon"
+
+  # config.vm.provider :virtualbox do |vb|
+  #       vb.name = "isa2017"
+  # end
 
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
@@ -39,7 +40,7 @@ Vagrant.configure("2") do |config|
 
   # Create a private network, which allows host-only access to the machine
   # using a specific IP.
-  #config.vm.network "private_network", type: "dhcp"
+  config.vm.network "private_network", type: "dhcp"
 
   # Create a public network, which generally matched to bridged network.
   # Bridged networks make the machine appear as another physical device on
@@ -51,7 +52,6 @@ Vagrant.configure("2") do |config|
   # the path on the guest to mount the folder. And the optional third
   # argument is a set of non-required options.
   # config.vm.synced_folder ".", "/isamon"
-  config.vm.provision "file", source: ".", destination: "$HOME/isamon"
 
   # Provider-specific configuration so you can fine-tune various
   # backing providers for Vagrant. These expose provider-specific options.
@@ -76,4 +76,3 @@ Vagrant.configure("2") do |config|
      yum install -y gcc-c++
    SHELL
 end
-

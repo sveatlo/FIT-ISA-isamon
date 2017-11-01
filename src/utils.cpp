@@ -39,11 +39,13 @@ void Utils::print_error(int code, string error_string) {
             {106, "ICMP receiving error"},
             {107, "TCP scanning error"},
             {108, "TCP receiving error"},
+            {109, "UDP scanning error"},
+            {110, "UDP receiving error"},
             {150, "Cannot get MAC address for interface"},
             {255, "Excessive use of Ctrl+c"}
     };
 
-    cerr << "\033[1;31m[EROR]" << (error_strings.count(code) > 0 ? error_strings[code] : "Unknown error") << ".\033[0m ";
+    cerr << "\033[1;31m[EROR] " << (error_strings.count(code) > 0 ? error_strings[code] : "Unknown error") << ".\033[0m ";
     if (error_string != "") {
         cerr << "\033[1;31m" << error_string << "\033[0m\n";
     } else if(errno != 0 && code != 255) {
@@ -59,7 +61,7 @@ uint32_t Utils::ip_to_int(const string ip) {
     uint32_t addr = 0;
 
     if (sscanf(ip.c_str(), "%d.%d.%d.%d", &a, &b, &c, &d) != 4) {
-        Utils::print_error(101);
+        throw 1;
     }
 
     addr = a << 24;

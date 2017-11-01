@@ -1,4 +1,4 @@
-CFLAGS=-std=c++11  -lstdc++ -lpthread -Wall -Wextra -O0 -g
+CFLAGS=-std=c++11  -lstdc++ -lpthread -Wall -Wextra -O0 -g3
 CC=gcc
 SRC_DIR=src/
 DIST_DIR=dist/

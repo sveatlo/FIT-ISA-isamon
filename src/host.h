@@ -16,7 +16,8 @@ public:
 
     void set_mac(shared_ptr<MAC> _mac);
     void add_ipv4(shared_ptr<IPv4> _ipv4);
-    void add_open_port(int port_no, bool is_tcp = false, bool is_udp = true);
+    void set_tcp_port(int port_no, bool open);
+    void set_udp_port(int port_no, bool open);
     shared_ptr<MAC> get_mac();
     map<string, shared_ptr<IPv4>> get_ipv4_addresses();
     void print_info();

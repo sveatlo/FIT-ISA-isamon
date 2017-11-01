@@ -1,7 +1,8 @@
-#include <iostream>
 #include <arpa/inet.h>
 #include <bitset>
+#include <iostream>
 #include <linux/if_packet.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/ip_icmp.h>
 #include <sys/socket.h>
@@ -12,21 +13,27 @@
 #include "icmp_scanner.h"
 
 
-ICMPScanner::ICMPScanner(shared_ptr<IPv4> _ipv4) {
+ICMPScanner::ICMPScanner(shared_ptr<IPv4> _ipv4, shared_ptr<Interface> _if) {
     this->network = _ipv4;
+    this->interface = _if;
 }
 
 void ICMPScanner::start() {
     this->prepare();
     thread t(&ICMPScanner::recv_responses, this);
-    unsigned long total = this->network->get_broadcast_address().to_ulong() - this->network->get_network_address().to_ulong() - 2;
-    unsigned long cnt = 0;
-    for(auto dst = Utils::increment(this->network->get_network_address()); dst < this->network->get_broadcast_address() && this->keep_scanning; dst = Utils::increment(dst), cnt++) {
-        this->send_request(make_shared<IPv4>(dst, this->network->get_netmask()), 0);
-        // Utils::progress_bar((float)cnt / (float)total);
-        usleep(1*1000);
+    unsigned long total = this->network->get_broadcast_address().to_ulong() - this->network->get_network_address().to_ulong();
+    if (total == 0) {
+        this->send_request(make_shared<IPv4>(this->network->get_broadcast_address(), this->network->get_netmask()), 0);
+    } else {
+        total -= 2;
+        unsigned long cnt = 0;
+        for(auto dst = Utils::increment(this->network->get_network_address()); dst < this->network->get_broadcast_address() && this->keep_scanning; dst = Utils::increment(dst), cnt++) {
+            this->send_request(make_shared<IPv4>(dst, this->network->get_netmask()), 0);
+            // Utils::progress_bar((float)cnt / (float)total);
+            usleep(1*1000);
+        }
+        cout << endl << flush;
     }
-    cout << endl << flush;
     usleep(2*1000*1000); // give other nodes 2s to respond
     this->stop();
     t.join();
@@ -45,6 +52,15 @@ void ICMPScanner::prepare() {
 void ICMPScanner::bind_sockets() {
     if ((this->snd_sd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0) {
         Utils::print_error(105);
+    }
+
+    if(this->interface != nullptr) {
+        struct ifreq ifr;
+
+        memset(&ifr, 0, sizeof(ifr));
+        if (setsockopt(this->snd_sd, SOL_SOCKET, SO_BINDTODEVICE, this->interface->get_name().c_str(), sizeof(ifr)) < 0) {
+            Utils::print_error(105);
+        }
     }
 
     if ((this->rcv_sd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0) {
