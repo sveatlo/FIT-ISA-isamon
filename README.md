@@ -8,13 +8,13 @@ isamon can scan local and non-local networks for live hosts and than perform a T
 
 ### Parameters
 Using:
- -h will print help
- -i <name> will use this interface in all scans
- -t will perform a TCP scan on all live hosts
- -u will perform a UDP scan on all live hosts
- -p <port> will scan this port (can be used multiple times)
- -n <subnet/netmask> will scan this network (can be combined with -i)
- -w <time> will wait a max <time> ms before moving on. Default for ARP scan is 1s, for ICMP 2s, for TCP 1s, for UDP 1.1s per host
+ * -h will print help
+ * -i <name> will use this interface in all scans
+ * -t will perform a TCP scan on all live hosts
+ * -u will perform a UDP scan on all live hosts
+ * -p <port> will scan this port (can be used multiple times)
+ * -n <subnet/netmask> will scan this network (can be combined with -i)
+ * -w <time> will wait a max <time> ms before moving on. Default for ARP scan is 1s, for ICMP 2s, for TCP 1s, for UDP 1.1s per host
 
 ### Exit codes
 On successfull exit, isamon returns 0 and no error message is written out.
