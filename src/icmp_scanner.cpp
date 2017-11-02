@@ -105,10 +105,6 @@ void ICMPScanner::recv_responses() {
     free(ether_frame);
 }
 
-map<string, shared_ptr<Host>> ICMPScanner::get_hosts() {
-    return this->hosts;
-}
-
 void ICMPScanner::send_request(shared_ptr<IPv4> dst, int count) {
     static int error_counter = 0;
     unsigned char buffer[MAXPACKET];

@@ -9,20 +9,29 @@
 
 using namespace std;
 
+/**
+ * Scan a (non)local subnet using ICMP echo requests
+ * @param _ipv4 Subnet address with network IP and netmask
+ * @param _if   Interface to use when scanning
+ */
 class ICMPScanner : public AbstractScanner {
 public:
     ICMPScanner(shared_ptr<IPv4> _ipv4, shared_ptr<Interface> _if = nullptr);
 
     void start();
     void stop();
-    map<string, shared_ptr<Host>> get_hosts();
 
 private:
-    bool keep_scanning = true;
+    /**
+     * IPv4 network address to scan
+     */
     shared_ptr<IPv4> network;
+
+    /**
+     * Interface to use
+     * If nullptr, no explicit binding is done
+     */
     shared_ptr<Interface> interface;
-    int rcv_sd;
-    int snd_sd;
 
     void prepare();
     void bind_sockets();

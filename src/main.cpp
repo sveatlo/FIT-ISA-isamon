@@ -34,7 +34,7 @@ map<string, shared_ptr<Host>> live_hosts; // vector of live (responding) hosts f
 
 int main (int argc, char** argv) {
     if(getuid()) {
-        Utils::print_error(0);
+        Utils::print_error(255);
     }
 
     // clrscr();
@@ -324,7 +324,7 @@ void interrupt_handler(int type) {
     exit_counter++;
     if(exit_counter == 3) {
         cerr << "ok, ok... calm down. exiting now" << endl;
-        Utils::print_error(255);
+        Utils::print_error(254);
     }
     for(auto scanner : scanners) {
         scanner.first->stop();

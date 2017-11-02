@@ -9,6 +9,9 @@
 
 using namespace std;
 
+/**
+ * This class represents 1 host in network
+ */
 class Host {
 public:
     Host();
@@ -23,9 +26,24 @@ public:
     void print_info();
 
 private:
+    /**
+     * map of mmultiple IPv4 addresses
+     */
     map<string, shared_ptr<IPv4>> ipv4;
+
+    /**
+     * map of multiple IPv6 addresses
+     */
     map<string, shared_ptr<IPv6>> ipv6;
+
+    /**
+     * MAC address of this host.
+     */
     shared_ptr<MAC> mac;
+
+    /**
+     * Map of UDP/TCP ports signaling whether they are open. Example: `53:[TCP=1,UDP=1]`
+     */
     map<int, pair<bool, bool>> ports; // 53:[TCP=1,UDP=1]
 };
 

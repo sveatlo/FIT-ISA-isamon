@@ -111,8 +111,8 @@ void UDPScanner::scan_host(shared_ptr<Host> &host, shared_ptr<IPv4> &ipv4) {
         host->set_udp_port(port, true);
         this->hosts_mutex->unlock();
 
+        this->scanned++;
         usleep(1.1*1000*1000);
-        // Utils::progress_bar(float(this->cnt++) / (float)this->total);
     }
 }
 

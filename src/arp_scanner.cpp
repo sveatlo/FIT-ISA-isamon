@@ -1,18 +1,6 @@
 #include "arp_scanner.h"
 #include "utils.h"
 
-struct arp_header {
-    unsigned short hardware_type;
-    unsigned short protocol_type;
-    unsigned char hardware_len;
-    unsigned char protocol_len;
-    unsigned short opcode;
-    unsigned char sender_mac[MAC_LENGTH];
-    unsigned char sender_ip[IPV4_LENGTH];
-    unsigned char target_mac[MAC_LENGTH];
-    unsigned char target_ip[IPV4_LENGTH];
-};
-
 ARPScanner::ARPScanner(shared_ptr<Interface>_interface) {
     this->interface = _interface;
 
@@ -58,10 +46,6 @@ void ARPScanner::start() {
 void ARPScanner::stop() {
     this->keep_scanning = false;
     shutdown(this->rcv_sd, SHUT_RDWR);
-}
-
-map<string, shared_ptr<Host>> ARPScanner::get_hosts() {
-    return this->hosts;
 }
 
 void ARPScanner::bind_sockets() {

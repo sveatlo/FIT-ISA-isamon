@@ -33,7 +33,6 @@ void TCPScanner::prepare() {
     iph->frag_off = 0;
     iph->ttl = 64;
     iph->protocol = IPPROTO_TCP;
-    iph->check = 0;
     iph->saddr = inet_addr(source_ip);
     iph->check = Utils::checksum((unsigned short *) this->buffer, iph->tot_len >> 1);
 
@@ -47,7 +46,6 @@ void TCPScanner::prepare() {
     tcph->ack = 0;
     tcph->urg = 0;
     tcph->window = htons (14600);
-    tcph->check = 0;
     tcph->urg_ptr = 0;
 }
 
@@ -121,7 +119,7 @@ void TCPScanner::scan_host(shared_ptr<Host>& host, shared_ptr<IPv4>& ipv4) {
             Utils::print_error(107);
         }
 
-        Utils::progress_bar(float(this->cnt++) / (float)this->total);
+        this->scanned++;
     }
 }
 

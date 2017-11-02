@@ -9,15 +9,19 @@
 
 using namespace std;
 
+/**
+ * Performs TCP SYN scan on multiple hosts on multiple ports
+ * @param _hosts       map of hosts to scan
+ * @param _ports       vector of ports to scan, if empty ports 1-2^16 will be scanned
+ * @param _hosts_mutex mutex to gain sole access to the hosts map
+ * @param _if          interface to use during the scan, if nullptr, no explicit binding is done
+ */
 class TCPScanner : public PortScanner {
 public:
     TCPScanner(map<string, shared_ptr<Host>> &_hosts, vector<int> &_ports, mutex* _hosts_mutex, shared_ptr<Interface> _if = nullptr) :
         PortScanner(_hosts, _ports, _hosts_mutex, _if) {}
 
 private:
-    unsigned char buffer[MAXPACKET];
-
-
     void prepare();
     void bind_sockets();
     void scan_host(shared_ptr<Host>&, shared_ptr<IPv4>&);

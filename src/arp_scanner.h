@@ -34,6 +34,10 @@
 
 using namespace std;
 
+/**
+ * ARPScanner scans a local network by sending ARP requests
+ * @param _interface Interface to use to perform the scan
+ */
 class ARPScanner : public AbstractScanner {
 public:
     ARPScanner(shared_ptr<Interface>_interface);
@@ -41,20 +45,44 @@ public:
 
     void start();
     void stop();
-    map<string, shared_ptr<Host>> get_hosts();
 
 private:
-    bool keep_scanning = true;
-    int rcv_sd;
-    int snd_sd;
+    /**
+     * Interface to use to perform the scan
+     */
     shared_ptr<Interface> interface;
+
+    /**
+     * Buffer in which the general ARP packet is stored
+     */
     unsigned char buffer[BUF_SIZE];
+
+    /**
+     * The socket address to send the request to
+     * Contains information about the L2 layer
+     */
     struct sockaddr_ll socket_address;
 
     void prepare();
     void bind_sockets();
     void recv_responses();
     void send_request(shared_ptr<IPv4> src, shared_ptr<IPv4> dst);
+};
+
+/**
+ * structure used to prepare the ARP packet's header
+ * @see https://en.wikipedia.org/wiki/Address_Resolution_Protocol
+ */
+struct arp_header {
+    unsigned short hardware_type;
+    unsigned short protocol_type;
+    unsigned char hardware_len;
+    unsigned char protocol_len;
+    unsigned short opcode;
+    unsigned char sender_mac[MAC_LENGTH];
+    unsigned char sender_ip[IPV4_LENGTH];
+    unsigned char target_mac[MAC_LENGTH];
+    unsigned char target_ip[IPV4_LENGTH];
 };
 
 #endif

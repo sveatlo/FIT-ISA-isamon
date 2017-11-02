@@ -38,36 +38,52 @@ map<string, shared_ptr<IPv4>> Host::get_ipv4_addresses() {
 }
 
 void Host::print_info() {
-    size_t n = 0;
-    for (auto address : this->ipv4) {
-        cout << address.second->get_address_string() << (n == this->ipv4.size() - 1 ? "" : ", ");
-        n++;
-    }
-    cout << (this->ports.size() > 0 ? ": \n" : "\n");
+    // size_t n = 0;
+    // for (auto address : this->ipv4) {
+    //     cout << address.second->get_address_string() << (n == this->ipv4.size() - 1 ? "" : ", ");
+    //     n++;
+    // }
+    // cout << (this->ports.size() > 0 ? ": \n" : "\n");
+    // for (auto port : this->ports) {
+    //     if (!port.second.first && !port.second.second) {
+    //         continue;
+    //     }
+    //
+    //     cout << "  " << port.first << ": ";
+    //     if (port.second.first) {
+    //         cout << "TCP";
+    //
+    //         struct servent* service = getservbyport(port.second.first, "TCP");
+    //         if(service) {
+    //             cout << "(" << service->s_name << ")";
+    //         }
+    //
+    //         cout << (port.second.second ? "+" : "");
+    //     }
+    //     if (port.second.second) {
+    //         cout << "UDP";
+    //
+    //         struct servent* service = getservbyport(port.second.second, "UDP");
+    //         if(service) {
+    //             cout << "(" << service->s_name << ")";
+    //         }
+    //     }
+    //     cout << endl;
+    // }
+
+    // fking ugly output required by the project assignment
+    cout << this->ipv4.begin()->second->get_address_string() << endl;
     for (auto port : this->ports) {
-        if (!port.second.first && !port.second.second) {
-            continue;
+        if(port.second.first) {
+            cout << this->ipv4.begin()->second->get_address_string() << " TCP "
+                    << port.first
+                    << endl;
         }
 
-        cout << "  " << port.first << ": ";
-        if (port.second.first) {
-            cout << "TCP";
-
-            struct servent* service = getservbyport(port.second.first, "TCP");
-            if(service) {
-                cout << "(" << service->s_name << ")";
-            }
-
-            cout << (port.second.second ? "+" : "");
+        if(port.second.second) {
+            cout << this->ipv4.begin()->second->get_address_string() << " UDP "
+                    << port.first
+                    << endl;
         }
-        if (port.second.second) {
-            cout << "UDP";
-
-            struct servent* service = getservbyport(port.second.second, "UDP");
-            if(service) {
-                cout << "(" << service->s_name << ")";
-            }
-        }
-        cout << endl;
     }
 }

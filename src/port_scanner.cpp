@@ -27,7 +27,6 @@ void PortScanner::start() {
     }
     cout << endl;
 
-    usleep(1.1*1000*1000);
     this->stop();
     t.join();
 }
@@ -36,8 +35,4 @@ void PortScanner::stop() {
     this->keep_scanning = false;
     shutdown(this->rcv_sd, SHUT_RDWR);
     shutdown(this->snd_sd, SHUT_RDWR);
-}
-
-map<string, shared_ptr<Host>> PortScanner::get_hosts() {
-    return this->hosts;
 }

@@ -28,7 +28,7 @@ void Utils::log_error(string msg, string end) {
 
 void Utils::print_error(int code, string error_string) {
     map<int, string> error_strings = {
-            {0, "Run arp-scanner as root, stupid!"},
+            {-1, "Run isamon as root, stupid!"},
             {1, "Invalid arguments"},
             {2, "Cannot open output file"},
             {101, "Interface error"},

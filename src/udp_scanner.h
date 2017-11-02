@@ -15,9 +15,6 @@ public:
         PortScanner(_hosts, _ports, _hosts_mutex, _if) {}
 
 private:
-    unsigned char buffer[MAXPACKET];
-
-
     void prepare();
     void bind_sockets();
     void scan_host(shared_ptr<Host>&, shared_ptr<IPv4>&);

@@ -28,9 +28,11 @@ public:
         return value >> shift | value << (N-shift);
     }
     static unsigned int rotl(const unsigned int value, int shift);
+
     template <size_t N> static bitset<N> rotl(bitset<N> value, unsigned shift) {
         return value << shift | value >> (N-shift);
     }
+
     template <size_t N> static bitset<N> increment(bitset<N> val) {
         for (size_t i = 0; i < N; ++i) {
             if (val[i] == 0) {  // There will be no carry
@@ -41,6 +43,7 @@ public:
         }
         return val;
     }
+
     template<size_t R, size_t L, size_t N> static bitset<N> subbitset(bitset<N> b) {
         static_assert(R <= L && L <= N, "invalid bitrange");
         b >>= R;
@@ -50,26 +53,31 @@ public:
     }
 };
 
-template<size_t N>
-bool operator<(const bitset<N>& x, const bitset<N>& y)
-{
+template<size_t N> bool operator<(const bitset<N>& x, const bitset<N>& y) {
     for (int i = N-1; i >= 0; i--) {
-        if (x[i] ^ y[i]) return y[i];
+        if (x[i] ^ y[i]) {
+            return y[i];
+        }
     }
     return false;
 }
 
 
-template<size_t N>
-bool operator>(const bitset<N>& x, const bitset<N>& y)
-{
+template<size_t N> bool operator>(const bitset<N>& x, const bitset<N>& y) {
     for (size_t i = 0; i <= N - 1; i++) {
-        if (x[i] ^ y[i]) return y[i];
+        if (x[i] ^ y[i]) {
+            return y[i];
+        }
     }
     return false;
 }
 
-// for TCP/UDP checksum calculation
+/**
+ * Pseudo header used for TCP/UDP checksum calculation
+ * @see http://www.tcpipguide.com/free/t_TCPChecksumCalculationandtheTCPPseudoHeader-2.htm
+ * @see https://en.wikipedia.org/wiki/Transmission_Control_Protocol#Checksum_computation
+ * @see https://en.wikipedia.org/wiki/User_Datagram_Protocol#Checksum_computation
+ */
 struct pseudo_header {
     unsigned int saddr;
     unsigned int daddr;
