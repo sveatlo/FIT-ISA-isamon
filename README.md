@@ -23,7 +23,6 @@ In case isamon encounters an error, a non-zero error code is returned and an err
 | code  | message/reason                        |
 |-------|---------------------------------------|
 | 1     | Invalid arguments                     |
-| 2     | Cannot open output file               |
 | 101   | Interface error                       |
 | 102   | Socket bind error                     |
 | 103   | ARP scanning error                    |
