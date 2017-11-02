@@ -1,4 +1,4 @@
-#ISAMon
+# ISAMon
 
 ## Project description
 Simple TCP/UDP network scanner created as a project assignment of the ISA course.
