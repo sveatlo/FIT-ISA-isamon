@@ -47,4 +47,4 @@ run: build
 zip: $(SRC_DIR)*.c $(SRC_DIR)*.h Makefile Doxyfile
 	zip $(ZIPFILENAME).zip $(SRC_DIR) Makefile Doxyfile
 clean:
-	rm -f $(DIST_DIR)$(BINARY_NAME) $(DIST_DIR)*.o $(DIST_DIR)*.a $(DIST_DIR)*.so $(SRC_DIR)*.gch $(ZIPFILENAME).zip $(DOCS_DIR)html ./*.o
+	rm -f $(DIST_DIR)$(BINARY_NAME) $(DIST_DIR)*.o $(DIST_DIR)*.a $(DIST_DIR)*.so $(SRC_DIR)*.gch $(ZIPFILENAME).zip $(DOCS_DIR)doxygen ./*.o

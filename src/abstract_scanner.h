@@ -59,6 +59,11 @@ protected:
     bool keep_scanning = true;
 
     /**
+     * Time in ms to wait for responses
+     */
+    int wait = 1000;
+
+    /**
      * FD to use to send sockets
      */
     int snd_sd;

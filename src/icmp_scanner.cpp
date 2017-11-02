@@ -13,28 +13,29 @@
 #include "icmp_scanner.h"
 
 
-ICMPScanner::ICMPScanner(shared_ptr<IPv4> _ipv4, shared_ptr<Interface> _if) {
+ICMPScanner::ICMPScanner(shared_ptr<IPv4> _ipv4, int _wait, shared_ptr<Interface> _if) {
     this->network = _ipv4;
+    this->wait = _wait == -1 ? this->wait : _wait;
     this->interface = _if;
 }
 
 void ICMPScanner::start() {
     this->prepare();
     thread t(&ICMPScanner::recv_responses, this);
-    unsigned long total = this->network->get_broadcast_address().to_ulong() - this->network->get_network_address().to_ulong();
+    this->total = this->network->get_broadcast_address().to_ulong() - this->network->get_network_address().to_ulong();
+    this->scanned = 0;
     if (total == 0) {
         this->send_request(make_shared<IPv4>(this->network->get_broadcast_address(), this->network->get_netmask()), 0);
     } else {
-        total -= 2;
-        unsigned long cnt = 0;
-        for(auto dst = Utils::increment(this->network->get_network_address()); dst < this->network->get_broadcast_address() && this->keep_scanning; dst = Utils::increment(dst), cnt++) {
+        this->total -= 2;
+        for(auto dst = Utils::increment(this->network->get_network_address()); dst < this->network->get_broadcast_address() && this->keep_scanning; dst = Utils::increment(dst)) {
             this->send_request(make_shared<IPv4>(dst, this->network->get_netmask()), 0);
-            // Utils::progress_bar((float)cnt / (float)total);
+
+            this->scanned++;
             usleep(1*1000);
         }
-        cout << endl << flush;
     }
-    usleep(2*1000*1000); // give other nodes 2s to respond
+    usleep(this->wait*1000);
     this->stop();
     t.join();
 }

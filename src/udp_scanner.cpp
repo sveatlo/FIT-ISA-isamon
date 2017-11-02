@@ -112,7 +112,7 @@ void UDPScanner::scan_host(shared_ptr<Host> &host, shared_ptr<IPv4> &ipv4) {
         this->hosts_mutex->unlock();
 
         this->scanned++;
-        usleep(1.1*1000*1000);
+        usleep(this->wait*1000);
     }
 }
 

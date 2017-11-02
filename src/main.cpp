@@ -190,7 +190,7 @@ void run(int argc, char** argv) {
                 // cout << " (no relevant network) => network ARP SCAN\n";
                 // no --network argument => just run ARP scan
                 shared_ptr<AbstractScanner> scanner;
-                scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface));
+                scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface, arg_wait));
 
                 scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
                 running_arp[interface_name] = true;
@@ -210,7 +210,7 @@ void run(int argc, char** argv) {
                     // cout << " => network ARP SCAN";
                     // same network => ARP scan
                     shared_ptr<AbstractScanner> scanner;
-                    scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface));
+                    scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface, arg_wait));
 
                     scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
                     running_arp[interface_name] = true;
@@ -229,7 +229,7 @@ void run(int argc, char** argv) {
                         // cout << " => subnet ARP SCAN";
                         // subnet => run ARP *and* ICMP scan
                         shared_ptr<AbstractScanner> scanner;
-                        scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface));
+                        scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface, arg_wait));
 
                         scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
                         running_arp[interface_name] = true;
@@ -239,7 +239,7 @@ void run(int argc, char** argv) {
 
                     // run ICMP scan
                     shared_ptr<AbstractScanner> scanner;
-                    scanner = static_pointer_cast<AbstractScanner>(make_shared<ICMPScanner>(relevant_ipv4));
+                    scanner = static_pointer_cast<AbstractScanner>(make_shared<ICMPScanner>(relevant_ipv4, arg_wait, interface));
 
                     scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
                 }
@@ -276,12 +276,12 @@ void run(int argc, char** argv) {
         if(arg_tcp) {
             cerr << "\033[1;36;1m[INFO] Starting TCP PORT scan\033[0m\n";
             // start tcp scanner
-            shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<TCPScanner>(live_hosts, ports, &hosts_mtx, interface));
+            shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<TCPScanner>(live_hosts, ports, &hosts_mtx, arg_wait, interface));
             scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
         }
         if (arg_udp) {
             // start udp scanner
-            shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<UDPScanner>(live_hosts, ports, &hosts_mtx, interface));
+            shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<UDPScanner>(live_hosts, ports, &hosts_mtx, arg_wait, interface));
             scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
         }
 

@@ -37,11 +37,12 @@ using namespace std;
 /**
  * ARPScanner scans a local network by sending ARP requests
  * @param _interface Interface to use to perform the scan
+ * @param _wait Time in ms to wait for responses. -1 means the default of 1s will be used
  */
 class ARPScanner : public AbstractScanner {
 public:
-    ARPScanner(shared_ptr<Interface>_interface);
-    ARPScanner(string _interface) : ARPScanner(make_shared<Interface>(_interface)) {};
+    ARPScanner(shared_ptr<Interface> _interface, int _wait);
+    ARPScanner(string _interface, int _wait) : ARPScanner(make_shared<Interface>(_interface), _wait) {};
 
     void start();
     void stop();

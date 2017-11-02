@@ -28,9 +28,7 @@ void Utils::log_error(string msg, string end) {
 
 void Utils::print_error(int code, string error_string) {
     map<int, string> error_strings = {
-            {-1, "Run isamon as root, stupid!"},
             {1, "Invalid arguments"},
-            {2, "Cannot open output file"},
             {101, "Interface error"},
             {102, "Socket bind error"},
             {103, "ARP scanning error"},
@@ -42,7 +40,8 @@ void Utils::print_error(int code, string error_string) {
             {109, "UDP scanning error"},
             {110, "UDP receiving error"},
             {150, "Cannot get MAC address for interface"},
-            {255, "Excessive use of Ctrl+c"}
+            {254, "Excessive use of Ctrl+c"},
+            {255, "Run isamon as root, stupid!"}
     };
 
     cerr << "\033[1;31m[EROR] " << (error_strings.count(code) > 0 ? error_strings[code] : "Unknown error") << ".\033[0m ";

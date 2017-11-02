@@ -12,11 +12,12 @@ using namespace std;
 /**
  * Scan a (non)local subnet using ICMP echo requests
  * @param _ipv4 Subnet address with network IP and netmask
+ * @param _wait Time to wait for responses. -1 means the default of 1s will be used
  * @param _if   Interface to use when scanning
  */
 class ICMPScanner : public AbstractScanner {
 public:
-    ICMPScanner(shared_ptr<IPv4> _ipv4, shared_ptr<Interface> _if = nullptr);
+    ICMPScanner(shared_ptr<IPv4> _ipv4, int _wait, shared_ptr<Interface> _if = nullptr);
 
     void start();
     void stop();

@@ -1,8 +1,10 @@
 #include "arp_scanner.h"
 #include "utils.h"
 
-ARPScanner::ARPScanner(shared_ptr<Interface>_interface) {
+
+ARPScanner::ARPScanner(shared_ptr<Interface> _interface, int _wait) {
     this->interface = _interface;
+    this->wait = _wait == -1 ? this->wait : _wait;
 
     // this->interface->print_info();
 }
@@ -11,15 +13,17 @@ void ARPScanner::start() {
     this->prepare();
     thread t(&ARPScanner::recv_responses, this);
 
-    unsigned long total = 0, cnt = 0;
-    for (int i = 0; i < 3; i++) {
+    this->total = 0;
+    this->scanned = 0;
+    // multiple ARP request proven efficient with misbehaving/cheap android devices
+    int retries = 0;
+    for (int i = 0; i < retries + 1; i++) {
         for(auto &src : this->interface->get_ipv4_addresses()) {
-            total += src->get_broadcast_address().to_ulong() - src->get_network_address().to_ulong() - 2;
+            this->total += src->get_broadcast_address().to_ulong() - src->get_network_address().to_ulong() - 2;
         }
     }
 
-    cout << endl << flush;
-    for (int i = 0; i < 3 && this->keep_scanning; i++) {
+    for (int i = 0; i < retries + 1 && this->keep_scanning; i++) {
         for(auto &src : this->interface->get_ipv4_addresses()) {
             if (!this->keep_scanning) {
                 break;
@@ -27,18 +31,18 @@ void ARPScanner::start() {
 
             for(auto dst = src->get_network_address();
                 dst < src->get_broadcast_address() && this->keep_scanning;
-                dst = Utils::increment(dst), cnt++
+                dst = Utils::increment(dst)
             ) {
                 auto dst_ipv4 = make_shared<IPv4>(dst, src->get_netmask());
                 if (dst != src->get_address()) {
                     this->send_request(src, dst_ipv4);
                 }
-                // Utils::progress_bar((float)cnt / (float)total);
+
+                this->scanned++;
             }
         }
-        usleep(1*1000*1000);
+        usleep(this->wait*1000);
     }
-    cout << endl << flush;
     this->stop();
     t.join();
 }

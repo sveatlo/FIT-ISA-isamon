@@ -1,0 +1,131 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{listings}
+\usepackage{caption}
+\usepackage[left=2cm,text={17cm,24cm},top=3cm]{geometry}
+
+
+\newcommand{\source}[1]{\caption*{Source: {#1}} }
+
+\bibliographystyle{czechiso}
+
+\begin{document}
+
+\begin{titlepage}
+	\begin{center}
+	    {\LARGE\textsc{Brno University of Technology}}\\
+	    \smallskip
+	    {\Large\textsc{Faculty of Information Technology}}\\
+	    \bigskip
+	    \vspace{\stretch{0.382}}
+	    \LARGE{Network Applications and Network Administration}\\
+	    \smallskip
+		\Huge{ISAmon}\\
+		\huge{Network monitoring}
+	    \vspace{\stretch{0.618}}
+	\end{center}
+    {\today \hfill Svätopluk Hanzel}
+\end{titlepage}
+
+\tableofcontents
+
+\newpage
+\section*{Abstract}
+	The ISAmon application is a computer program designed to discover live hosts and their opened ports on a local or non-local computer network.	
+\newpage
+
+\section{Usage}
+	\subsection{Parameters}
+		ISAmon allows a usage of several parameters, which allow specifying the behaviour desired by user.
+		\paragraph{\texttt{-{}-help}} The program will print usage help to \emph{stdout} and exit.
+		\vspace{-0.5cm}
+		\paragraph{\texttt{-{}-interface <interface name>}} The program will use the interface identified by \emph{interface name} to perform all scans. In case this parameter is not supplied, ISAmon will use all live (in UP state) interfaces.
+		\vspace{-0.5cm}
+		\paragraph{\texttt{-{}-network <network/netmask>}} The program will perform a scan for live hosts using the appropriate scan type in the network identified by network IP and netmask. Netmask may be a number between 1 and 29 or 32. If no netmask is supplied, /32 netmask is assumed and used, which means only 1 host will be scanned. In case this parameter is not supplied, ISAmon will scan all networks on all suitable interfaces -- defined by the \texttt{-{}-interface} parameter.
+		\vspace{-0.5cm}
+		\paragraph{\texttt{-{}-tcp}} The program will perform a TCP port scan.
+		\vspace{-0.5cm}
+		\paragraph{\texttt{-{}-udp}} The program will perform a UDP port scan.
+		\vspace{-0.5cm}
+		\paragraph{\texttt{-{}-port}} The program will perform all port scan only on ports specified by this parameter, which can be used multiple times. In case this parameter is not supplied, the whole port range (1-65536) will be scanned.
+		\vspace{-0.5cm}
+		\paragraph{\texttt{-{}-wait <time>}} The program will wait a maximum of \emph{time} ms to wait for responses.
+			
+\section{Network scanning}
+	The first step in ISAmon's network scanning routine is to find all the live hosts on the network that is being scanned. Live host in this context means a host -- computer or any other network-enabled device, which responds to ISAmon's requests. ISAmon uses 2 types of scanning techniques to find live hosts: ARP and ICMP echo scanning. The best scanning technique for specific use-case is determined automatically.\\
+	In case an interface is specified using the \texttt{-{}-interface} parameter, but the \texttt{-{}-network} parameter isn't supplied, ARP scan is started on all the networks associated with this interface\\
+	In case network is specified, but interface is not, all local interfaces are checked whether they are connected to the specified network or its subnet. In the first case a ARP scan is run using this interface, in case of the subnet, ICMP scan is run on the whole range and ARP scan is run on subnet connected directly. Example: Your computer has 2 interfaces: \emph{eth0} and \emph{eth1}. eth0 has assigned an IPv4 address \texttt{10.8.0.8/24} and eth1 has \texttt{192.168.1.42/24}. On this computer, you run ISAmon with \texttt{-{}-network 10.8.0.0/16} as parameter. In this case ISAmon will scan the 10.8.0.1-10.8.0.254 IPv4 range using the ARP scan and the whole 10.8.0.1-10.8.255.254 range will be scanned using ICMP scanning 2 times -- once using the interface eth0 and then using eth1.\\
+	In case both interface and network are specified, ISAmon will proceed as in the previous case with the exception, that only the specified interface will be taken into account.
+	
+	\subsection{ARP scanning}
+		ARP is a critical network protocol for IPv4 networks. It is used for mapping network address to physical address \cite{RFC0826}\cite{Wiki:ARP}. ISAmon uses this protocol to discover hosts only on local networks, because the ARP protocol was not designed to be used outside LANs.\\
+		ISAmon's implementation of ARP scanning technique uses 2 separate threads - one for sending the requests and one for receiving responses and saving the results.\\
+		
+		
+		\begin{figure}[h]
+			\centering
+			\includegraphics[width=0.7\linewidth]{images/arp.jpg}
+			%\caption{ARP packet format}
+			\caption{ARP packet format}
+			\label{fig:arp}
+			\source{\href{https://commons.wikimedia.org/wiki/Category:Address_Resolution_Protocol}{WikiMedia}}
+		\end{figure}
+		
+		\subsubsection*{Sending ARP requests}
+			For each IPv4 address in the scanned range 1 ARP request is sent using a \emph{RAW} socket with ethernet protocol. The packet's structure can be seen on figure \ref{fig:arp}. Before the packet itself is sent, it is filled with HW type (Ethernet = 1), protocol type (IPv4 = 0x0800), their lengths (6 and 4), operation code (request = 1), sender's IP and MAC address, and target's IPv4 address.\cite{Wiki:ARP}. Since the sender doesn't know target's hardware address, this request is sent to ethernet broadcast (FF:FF:FF:FF:FF:FF), which is set as target's hardware address.
+			
+		
+		\subsubsection*{Receiving ARP responses}\label{section:arp_receiving}
+			Whenever host receives ARP request, it checks whether his IP address matches the one specified in the ARP request. If it does, its ARP cache is updated with the address mapping of the sender of the ARP request. The host then creates an ARP reply message which contains the requested MAC address and is sent using unicast directly to the sender of the ARP request \cite{microsoft:arp_process}.\\
+			ISAmon than catches these responses using a RAW socket with ethernet protocol. This socket type however catches all ethernet packets, so ISAmon has to filter them to only return ARP reply packets from IPs a request was send to beforehand.
+				
+	\subsection{IMCP echo scanning}
+		In cases like scanning an external network, when ARP scanning is not usable, ISAmon uses ICMP echo requests to determine whether a host is responding. ICMP is a support protocol used by network devices to exchange messages about errors or service availability \cite{wiki:icmp}. One of the ICMP's message types is \emph{echo request} (or ping, type = 8) is used to request a \emph{echo reply} (type = 0) from the computer the ping was sent to. In case we receive an echo reply, it is safe to assume the host is live and responding. 
+		
+		
+		\begin{figure}[h]
+			\centering
+			\includegraphics[width=0.7\linewidth]{images/icmp.png}
+			%\caption{ARP packet format}
+			\caption{ICMP packet format}
+			\label{fig:icmp}
+			\source{\href{http://www.itgeared.com/articles/1094-ping-and-icmp-error-messages/}{IT geared}}
+		\end{figure}
+		
+		\subsubsection*{Sending ICMP echo requests}
+			During the ICMP network scan a ICMP echo request is sent to each IPv4 address in the address range being scanned using a RAW socket with ICMP protocol. Structure of the resulting IP packet can be seen on figure \ref{fig:icmp}. For echo requests both type and code is set to 0. Checksum is than computed as 16-bit ones's complement of the one's complement sum of the ICMP message starting with the ICMP Type \cite{RFC0792}.
+			
+		\subsubsection*{Receiving ICMP reply responses}
+			In response to ICMP echo request a echo reply is generated \cite{wiki:ping}. ISAmon catches these packets using a RAW socket with ICMP protocol and then filters them by ICMP type, code and sender IP from the IP header to match one of the IPs a ping request was sent to. Similary to receiving ARP requests (see \ref{section:arp_receiving}) this is done in a separate thread created before sending any requests.
+	
+\section{Port scanning}
+	In case a \texttt{-{}-tcp} and/or \texttt{-{}-udp} parameter is specified a port scan is used a port scan is initialized using one of the techniques described below.
+
+	\subsection{TCP port scanning}
+		For TCP port scanning ISAmon uses a method called TCP SYN scan\footnote{\url{https://nmap.org/nmap_doc.html\#syn}} or half-open TCP scan. Thanks to TCP's three-way handshake when ISAmon sends a TCP packet to an open port with a SYN flag set to 1 (see figure \ref{fig:tcp_header}), the other host will respond with a TCP packet with SYN and ACK flags set to 1. If no such message is sent, the port is either closed or the request was blocked by firewall, marking this port to be closed. False negatives are possible, false positives are not.\\
+				
+		\begin{figure}[h]
+			\centering
+			\includegraphics[width=0.7\linewidth]{images/tcp_header.png}
+			%\caption{ARP packet format}
+			\caption{TCP header}
+			\label{fig:tcp_header}
+			\source{\href{http://intronetworks.cs.luc.edu/1/html/tcp.html}{Loyola university of Chicago}}
+		\end{figure}
+	
+	\subsection{UDP port scanning}
+		Scanning for open UDP ports is trickier because UDP is a connection-less protocol, meaning you don't get any response in case the port is open, the datagram got lost or was filtered by firewall. This leads to many possible false positives, because the only way to determine a port is closed is to wait for a ICMP \emph{destination unreachable} message, which mosts systems send only once a specific time period, for example the default ratelimit for linux is set to 1000ms since kernel 2.4.10 \cite{man7:icmp}. This means using the \texttt{-{}-wait} parameter with a value below 1000ms is not recommended when scanning for UDP ports.\\
+		In case the scanned port is closed and the ICMP message (see figure \ref{fig:icmp}) was not rate-limited or filtered by some firewall, ISAmon receives it and parses the enclosed UDP header to determine which port is closed, otherwise ISAmon considers it to be open, which may lead to false positives.
+
+
+
+% References
+\newpage
+\bibliography{references}
+
+\end{document}
+
