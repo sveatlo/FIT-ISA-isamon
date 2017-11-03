@@ -24,7 +24,8 @@ void ICMPScanner::start() {
     thread t(&ICMPScanner::recv_responses, this);
     this->total = this->network->get_broadcast_address().to_ulong() - this->network->get_network_address().to_ulong();
     this->scanned = 0;
-    if (total == 0) {
+    if (this->total == 0) {
+        this->total = 1;
         this->send_request(make_shared<IPv4>(this->network->get_broadcast_address(), this->network->get_netmask()), 0);
     } else {
         this->total -= 2;

@@ -16,7 +16,7 @@ void ARPScanner::start() {
     this->total = 0;
     this->scanned = 0;
     // multiple ARP request proven efficient with misbehaving/cheap android devices
-    int retries = 0;
+    int retries = 3;
     for (int i = 0; i < retries + 1; i++) {
         for(auto &src : this->interface->get_ipv4_addresses()) {
             this->total += src->get_broadcast_address().to_ulong() - src->get_network_address().to_ulong() - 2;

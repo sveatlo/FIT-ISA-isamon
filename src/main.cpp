@@ -27,6 +27,7 @@ void run(int argc, char** argv);
 void print_help();
 void print_hosts();
 void interrupt_handler(int type);
+void show_progress();
 
 bool interrupted = false;
 vector<pair<shared_ptr<AbstractScanner>, shared_ptr<thread>>> scanners; // vector of pairs of scanner and its thread
@@ -247,6 +248,8 @@ void run(int argc, char** argv) {
             }
         }
 
+        show_progress();
+
         for(auto scanner : scanners) {
             scanner.second->join();
             auto scanner_result = scanner.first->get_hosts();
@@ -280,10 +283,13 @@ void run(int argc, char** argv) {
             scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
         }
         if (arg_udp) {
+            cerr << "\033[1;36;1m[INFO] Starting UDP PORT scan\033[0m\n";
             // start udp scanner
             shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<UDPScanner>(live_hosts, ports, &hosts_mtx, arg_wait, interface));
             scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
         }
+
+        show_progress();
 
         // wait for them to join back
         for(auto scanner : scanners) {
@@ -308,12 +314,32 @@ void print_help() {
     cout << "\t-w --wait <ms> -- dodatečná informace pro Váš nástroj jaké je maximální přípustné RTT" << endl;
 }
 
+void show_progress() {
+    uint8_t counter = 0;
+    float percent = 0.0f;
+    while (percent < 1) {
+        unsigned long total = 0;
+        unsigned long scanned = 0;
+        for(auto scanner : scanners) {
+            total += scanner.first->get_total();
+            scanned += scanner.first->get_scanned();
+        }
+        if(total == 0) {
+            if(++counter == 3) return;
+            usleep(5*1000);
+            continue;
+        }
+        percent = (float)scanned/(float)total;
+        Utils::progress_bar(percent);
+    }
+    cout << endl << flush;
+}
+
 void print_hosts() {
     for (auto host : live_hosts) {
         host.second->print_info();
     }
 }
-
 
 void interrupt_handler(int type) {
     static int exit_counter = 0;
