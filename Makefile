@@ -2,14 +2,16 @@ CFLAGS=-std=c++11  -lstdc++ -lpthread -Wall -Wextra -O0 -g3
 CC=gcc
 SRC_DIR=src/
 DIST_DIR=dist/
-DOCS_DIR=dist/
+DOCS_DIR=docs/
+DOCS_SOURCES=$(DOCS_DIR)manual/isamon.tex $(DOCS_DIR)manual/czechiso.bst \
+				$(DOCS_DIR)manual/references.bib $(DOCS_DIR)manual/Makefile $(DOCS_DIR)manual/images
 BINARY_NAME=isamon
-ZIPFILENAME=dist/isamon
+ARCHIVEFILENAME=dist/xhanze10.tar
 
 MODULES=utils ipv4 ipv6 mac host interface arp_scanner icmp_scanner port_scanner tcp_scanner udp_scanner
 OBJECT_FILE_PATTERN=$(DIST_DIR)%.o
 
-.PHONY=run all build
+.PHONY=run all build pack docs
 
 all: build $(DIST_DIR)$(BINARY_NAME)
 	@echo "██╗███████╗ █████╗ ███╗   ███╗ ██████╗ ███╗   ██╗"
@@ -21,8 +23,9 @@ all: build $(DIST_DIR)$(BINARY_NAME)
 
 
 
-docs: $(wildcard $(SRC_DIR)*)
+documentation: $(wildcard $(SRC_DIR)*) $(DOCS_SOURCES)
 	doxygen
+	make -C $(DOCS_DIR)manual
 
 stats:
 	@echo -n "Lines of code: " && wc -l $(wildcard $(SRC_DIR)*.cpp $(SRC_DIR)*.h) | tail -n 1 | sed -r "s/[ ]*([0-9]+).*/\1/g"
@@ -44,7 +47,13 @@ $(OBJECT_FILE_PATTERN): $(SRC_DIR)%.cpp $(SRC_DIR)%.h
 
 run: build
 	exec $(DIST_DIR)$(BINARY_NAME)
-zip: $(SRC_DIR)*.c $(SRC_DIR)*.h Makefile Doxyfile
-	zip $(ZIPFILENAME).zip $(SRC_DIR) Makefile Doxyfile
+pack: $(SRC_DIR)*.cpp $(SRC_DIR)*.h $(DOCS_SOURCES) Makefile Doxyfile
+	make documentation
+	mv docs/manual/manual.pdf manual.pdf
+	make clean
+	tar cf $(ARCHIVEFILENAME) $(SRC_DIR) $(DOCS_DIR) manual.pdf Makefile Doxyfile README.md Vagrantfile
 clean:
-	rm -f $(DIST_DIR)$(BINARY_NAME) $(DIST_DIR)*.o $(DIST_DIR)*.a $(DIST_DIR)*.so $(SRC_DIR)*.gch $(ZIPFILENAME).zip $(DOCS_DIR)doxygen ./*.o
+	make -C $(DOCS_DIR)manual clean
+	rm -rf ./*.o $(DIST_DIR)$(BINARY_NAME) $(DIST_DIR)*.o $(DIST_DIR)*.a $(DIST_DIR)*.so $(SRC_DIR)*.gch \
+			$(ARCHIVEFILENAME) $(DOCS_DIR)doxygen \
+			$(filter-out $(DOCS_SOURCES) , $(wildcard $(DOCS_DIR)manual/*))

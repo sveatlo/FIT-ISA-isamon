@@ -5,3 +5,4 @@ vgcore.*
 .vagrant
 *.o
 out
+manual.pdf
