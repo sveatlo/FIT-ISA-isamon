@@ -13,10 +13,8 @@ void ARPScanner::start() {
     this->prepare();
     thread t(&ARPScanner::recv_responses, this);
 
-    this->total = 0;
-    this->scanned = 0;
     // multiple ARP request proven efficient with misbehaving/cheap android devices
-    int retries = 3;
+    int retries = 0;
     for (int i = 0; i < retries + 1; i++) {
         for(auto &src : this->interface->get_ipv4_addresses()) {
             this->total += src->get_broadcast_address().to_ulong() - src->get_network_address().to_ulong() - 2;
@@ -43,8 +41,11 @@ void ARPScanner::start() {
         }
         usleep(this->wait*1000);
     }
+
+    cout << "Finished scanning" << endl;
     this->stop();
     t.join();
+    cout << "Truly finished scanning" << endl;
 }
 
 void ARPScanner::stop() {
@@ -89,64 +90,6 @@ void ARPScanner::bind_sockets() {
     // if(setsockopt(this->rcv_sd, SOL_SOCKET, SO_RCVTIMEO, (char *)&wait, sizeof(struct timeval)) < 0) {
     //     Utils::print_error(104);
     // }
-}
-
-void ARPScanner::recv_responses()  {
-    int status = 0;
-    uint8_t ether_frame[IP_MAXPACKET];
-    if(ether_frame == NULL) {
-        Utils::print_error(104);
-    }
-    while (this->keep_scanning) {
-        memset(ether_frame, 0, IP_MAXPACKET * sizeof(uint8_t));
-        if((status = recv(this->rcv_sd, ether_frame, IP_MAXPACKET, 0)) < 0) {
-            if(errno == EINTR) {
-                continue; // Something weird happened, but let's try again.
-            } else if(errno == EAGAIN) {
-                break;
-            } else {
-                Utils::print_error(104);
-            }
-        }
-
-        struct arp_header *arp_res;
-        struct ethhdr *eth_res = (struct ethhdr *) ether_frame;
-        arp_res = (struct arp_header *)(ether_frame + ETH2_HEADER_LEN);
-        if (ntohs(eth_res->h_proto) != PROTO_ARP || ntohs(arp_res->opcode) != ARP_REPLY) {
-            // skip if not ARP reply
-            continue;
-        }
-
-        unsigned char src_mac_cstring[MAC_LENGTH] = {};
-        memcpy(src_mac_cstring, &ether_frame[6], MAC_LENGTH);
-        auto src_mac_address = make_shared<MAC>(src_mac_cstring);
-        if(src_mac_address->to_string() == this->interface->get_mac_string()) {
-            continue; // ignore replies from this node
-        }
-
-        auto sender_ipv4 = make_shared<IPv4>(arp_res->sender_ip, nullptr);
-        if (this->hosts.find(sender_ipv4->get_address_string()) == this->hosts.end()) {
-            // not found
-            auto host = make_shared<Host>();
-            host->set_mac(src_mac_address);
-            host->add_ipv4(sender_ipv4);
-            this->hosts[sender_ipv4->get_address_string()] = host;
-        }
-
-
-        // cout << "Received ARP response:" << endl;
-        // // cout << "\tDestination MAC (this node): " << dst_mac_string << endl;
-        // cout << "\tSource MAC: " << src_mac_address->to_string() << endl;
-        // // Next is ethernet type code (ETH_P_ARP fo
-        // cout << "\tEthernet type code (2054 = ARP): " << ((ether_frame[12]) << 8) + ether_frame[13] << endl;
-        // cout << "\tEthernet data (ARP header):\n";
-        // cout << "\t\tHardware type (1 = ethernet (10 Mb)): " << ntohs(arp_res->hardware_type) << endl;
-        // cout << "\t\tProtocol type (2048 for IPv4 addresses): " << ntohs(arp_res->protocol_type) << endl;
-        // cout << "\t\tHardware (MAC) address length (bytes): " << arp_res->hardware_len << endl;
-        // cout << "\t\tProtocol (IPv4) address length (bytes): " << arp_res->protocol_len << endl;
-        // cout << "\t\tOpcode (2 = ARP reply): " << ntohs(arp_res->opcode) << endl;
-        // // cout << "Sender protocol (IPv4) address: " << inet_ntoa(sender_ip_struct) << endl;
-    }
 }
 
 void ARPScanner::prepare() {
@@ -206,8 +149,68 @@ void ARPScanner::send_request(shared_ptr<IPv4> src, shared_ptr<IPv4> dst) {
     memcpy(arp_req->sender_ip, &src_ip, sizeof(uint32_t));
     memcpy(arp_req->target_ip, &dst_ip, sizeof(uint32_t));
 
-    ssize_t ret = sendto(this->snd_sd, my_buffer, 42, 0, (struct sockaddr *)&(this->socket_address), sizeof(this->socket_address));
-    if (ret == -1) {
+    int status = -1;
+    if ((status = sendto(this->snd_sd, my_buffer, 42, 0, (struct sockaddr *)&(this->socket_address), sizeof(this->socket_address))) < 0) {
         Utils::print_error(103);
+    }
+    this->ips_scanned.insert(dst->get_address_string());
+}
+
+void ARPScanner::recv_responses()  {
+    int status = 0;
+    uint8_t ether_frame[IP_MAXPACKET];
+    if(ether_frame == NULL) {
+        Utils::print_error(104);
+    }
+    while (this->keep_scanning) {
+        memset(ether_frame, 0, IP_MAXPACKET * sizeof(uint8_t));
+        if((status = recv(this->rcv_sd, ether_frame, IP_MAXPACKET, 0)) < 0) {
+            if(errno == EINTR) {
+                continue; // Something weird happened, but let's try again.
+            } else if(errno == EAGAIN) {
+                break;
+            } else {
+                Utils::print_error(104);
+            }
+        }
+
+        struct arp_header *arp_res;
+        struct ethhdr *eth_res = (struct ethhdr *) ether_frame;
+        arp_res = (struct arp_header *)(ether_frame + ETH2_HEADER_LEN);
+        if (ntohs(eth_res->h_proto) != PROTO_ARP || ntohs(arp_res->opcode) != ARP_REPLY) {
+            // skip if not ARP reply
+            continue;
+        }
+
+        unsigned char src_mac_cstring[MAC_LENGTH] = {};
+        memcpy(src_mac_cstring, &ether_frame[6], MAC_LENGTH);
+        auto src_mac_address = make_shared<MAC>(src_mac_cstring);
+        if(src_mac_address->to_string() == this->interface->get_mac_string()) {
+            continue; // ignore replies from this node
+        }
+
+        auto sender_ipv4 = make_shared<IPv4>(arp_res->sender_ip, nullptr);
+        if (this->hosts.find(sender_ipv4->get_address_string()) == this->hosts.end() &&
+                this->ips_scanned.find(sender_ipv4->get_address_string()) != this->ips_scanned.end()) {
+            // not found
+            auto host = make_shared<Host>();
+            host->set_mac(src_mac_address);
+            host->add_ipv4(sender_ipv4);
+            this->hosts[sender_ipv4->get_address_string()] = host;
+        }
+
+
+        // cout << "Received ARP response:" << endl;
+        // // cout << "\tDestination MAC (this node): " << dst_mac_string << endl;
+        // cout << "\tSource MAC: " << src_mac_address->to_string() << endl;
+        // // Next is ethernet type code (ETH_P_ARP fo
+        // cout << "\tEthernet type code (2054 = ARP): " << ((ether_frame[12]) << 8) + ether_frame[13] << endl;
+        // cout << "\tEthernet data (ARP header):\n";
+        // cout << "\t\tHardware type (1 = ethernet (10 Mb)): " << ntohs(arp_res->hardware_type) << endl;
+        // cout << "\t\tProtocol type (2048 for IPv4 addresses): " << ntohs(arp_res->protocol_type) << endl;
+        // cout << "\t\tHardware (MAC) address length (bytes): " << arp_res->hardware_len << endl;
+        // cout << "\t\tProtocol (IPv4) address length (bytes): " << arp_res->protocol_len << endl;
+        // cout << "\t\tOpcode (2 = ARP reply): " << ntohs(arp_res->opcode) << endl;
+        // // cout << "Sender protocol (IPv4) address: " << inet_ntoa(sender_ip_struct) << endl;
     }
 }

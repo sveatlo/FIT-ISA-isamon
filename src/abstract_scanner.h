@@ -76,12 +76,12 @@ protected:
     /**
      * Total number of entities to scan
      */
-    unsigned long total;
+    unsigned long total = 0;
 
     /**
      * Number of entities scanned
      */
-    unsigned long scanned;
+    unsigned long scanned = 0;
 
     /**
      * Run all the preparation work before sending or receiving anything

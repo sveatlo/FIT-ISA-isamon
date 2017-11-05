@@ -135,7 +135,9 @@ void run(int argc, char** argv) {
             Utils::print_error(1);
         }
 
-        (void)arg_wait;
+        if(ports.size() && !(arg_udp || arg_tcp)) {
+            Utils::print_error(1, "Ports specified without scanning method.");
+        }
 
         signal(SIGINT, interrupt_handler);
 
@@ -192,6 +194,7 @@ void run(int argc, char** argv) {
                 // no --network argument => just run ARP scan
                 shared_ptr<AbstractScanner> scanner;
                 scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface, arg_wait));
+                Utils::log_info("Starting ARP scan on interface " + interface->get_name());
 
                 scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
                 running_arp[interface_name] = true;
@@ -212,6 +215,7 @@ void run(int argc, char** argv) {
                     // same network => ARP scan
                     shared_ptr<AbstractScanner> scanner;
                     scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface, arg_wait));
+                    Utils::log_info("Starting ARP scan on interface " + interface->get_name());
 
                     scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
                     running_arp[interface_name] = true;
@@ -231,6 +235,7 @@ void run(int argc, char** argv) {
                         // subnet => run ARP *and* ICMP scan
                         shared_ptr<AbstractScanner> scanner;
                         scanner = static_pointer_cast<AbstractScanner>(make_shared<ARPScanner>(interface, arg_wait));
+                        Utils::log_info("Starting ARP scan on interface " + interface->get_name() + " for IP range " + ipv4->get_network_address().to_string() + "-" + ipv4->get_broadcast_address().to_string());
 
                         scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
                         running_arp[interface_name] = true;
@@ -241,6 +246,7 @@ void run(int argc, char** argv) {
                     // run ICMP scan
                     shared_ptr<AbstractScanner> scanner;
                     scanner = static_pointer_cast<AbstractScanner>(make_shared<ICMPScanner>(relevant_ipv4, arg_wait, interface));
+                    Utils::log_info("Starting ICMP ping scan on interface " + interface->get_name() + " for IP range " + relevant_ipv4->get_network_address().to_string() + "-" + relevant_ipv4->get_broadcast_address().to_string());
 
                     scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
                 }
@@ -304,7 +310,7 @@ void run(int argc, char** argv) {
 }
 
 void print_help() {
-    cout << "isamon [-h] [-i <interface>] [-t] [-u] [-p <port>] [-w <ms>] -n <net_address/mask>" << endl;
+    cout << "isamon [-h] [-i <interface>] [-t] [-u] [-p <port>] [-w <ms>] [-n <net_address/mask>]" << endl;
     cout << "\t-h --help -- zobrazí nápovědu" << endl;
     cout << "\t-i --interface <interface> -- rozhraní na kterém bude nástroj scanovat" << endl;
     cout << "\t-n --network <net_address/mask> -- ip adresa síťe s maskou definující rozsah pro scanování" << endl;

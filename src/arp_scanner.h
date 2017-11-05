@@ -54,6 +54,11 @@ private:
     shared_ptr<Interface> interface;
 
     /**
+     * Set of IP strings to which a request was sent
+     */
+    set<string> ips_scanned;
+
+    /**
      * Buffer in which the general ARP packet is stored
      */
     unsigned char buffer[BUF_SIZE];

@@ -13,7 +13,7 @@ OBJECT_FILE_PATTERN=$(DIST_DIR)%.o
 
 .PHONY=run all build pack docs
 
-all: build $(DIST_DIR)$(BINARY_NAME)
+all: build-prod $(DIST_DIR)$(BINARY_NAME)
 	@echo "██╗███████╗ █████╗ ███╗   ███╗ ██████╗ ███╗   ██╗"
 	@echo "██║██╔════╝██╔══██╗████╗ ████║██╔═══██╗████╗  ██║"
 	@echo "██║███████╗███████║██╔████╔██║██║   ██║██╔██╗ ██║"
@@ -21,7 +21,7 @@ all: build $(DIST_DIR)$(BINARY_NAME)
 	@echo "██║███████║██║  ██║██║ ╚═╝ ██║╚██████╔╝██║ ╚████║      |b|y| |x|h|a|n|z|e|1|0|"
 	@echo "╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      +-+-+ +-+-+-+-+-+-+-+-+"
 
-
+dev: build
 
 documentation: $(wildcard $(SRC_DIR)*) $(DOCS_SOURCES)
 	doxygen
@@ -34,6 +34,9 @@ stats:
 
 # Link all the modules together
 build: $(DIST_DIR)$(BINARY_NAME)
+
+build-prod: build
+	mv $(DIST_DIR)$(BINARY_NAME) ./isamon
 
 # Build binary
 $(DIST_DIR)$(BINARY_NAME): $(SRC_DIR)main.cpp $(patsubst %,$(OBJECT_FILE_PATTERN), $(MODULES))
@@ -51,7 +54,7 @@ pack: $(SRC_DIR)*.cpp $(SRC_DIR)*.h $(DOCS_SOURCES) Makefile Doxyfile
 	make documentation
 	mv docs/manual/manual.pdf manual.pdf
 	make clean
-	tar cf $(ARCHIVEFILENAME) $(SRC_DIR) $(DOCS_DIR) manual.pdf Makefile Doxyfile README.md Vagrantfile
+	tar cf $(ARCHIVEFILENAME) $(SRC_DIR) $(DIST_DIR) $(DOCS_DIR) manual.pdf Makefile Doxyfile README.md Vagrantfile
 clean:
 	make -C $(DOCS_DIR)manual clean
 	rm -rf ./*.o $(DIST_DIR)$(BINARY_NAME) $(DIST_DIR)*.o $(DIST_DIR)*.a $(DIST_DIR)*.so $(SRC_DIR)*.gch \

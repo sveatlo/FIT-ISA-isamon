@@ -23,7 +23,6 @@ void ICMPScanner::start() {
     this->prepare();
     thread t(&ICMPScanner::recv_responses, this);
     this->total = this->network->get_broadcast_address().to_ulong() - this->network->get_network_address().to_ulong();
-    this->scanned = 0;
     if (this->total == 0) {
         this->total = 1;
         this->send_request(make_shared<IPv4>(this->network->get_broadcast_address(), this->network->get_netmask()), 0);
@@ -33,7 +32,7 @@ void ICMPScanner::start() {
             this->send_request(make_shared<IPv4>(dst, this->network->get_netmask()), 0);
 
             this->scanned++;
-            usleep(1*1000);
+            usleep(1*1000); // protects before running out of buffer space
         }
     }
     usleep(this->wait*1000);
@@ -70,6 +69,34 @@ void ICMPScanner::bind_sockets() {
     }
 }
 
+void ICMPScanner::send_request(shared_ptr<IPv4> dst, int count) {
+    unsigned char buffer[MAXPACKET];
+    struct icmp* icp = (struct icmp*)buffer;
+    int len = 64;
+
+    icp->icmp_type = ICMP_ECHO;
+    icp->icmp_code = 0;
+    icp->icmp_cksum = 0;
+    icp->icmp_seq = count;
+    icp->icmp_id = getpid();
+
+    icp->icmp_cksum = Utils::checksum((uint16_t*)icp, len);
+
+    struct sockaddr_in to;
+    to.sin_family = AF_INET;
+    to.sin_addr.s_addr = inet_addr(dst->get_address_string().c_str());
+
+    int status = -1;
+    if ((status = sendto(this->snd_sd, buffer, len, 0, (struct sockaddr*)&to, sizeof(struct sockaddr))) < 0)  {
+        if(errno == EACCES) {
+            Utils::log_warn("Cannot send ICMP request to " + dst->get_address_string() + ". Maybe broadcast address for subnet?");
+        } else {
+            Utils::print_error(105);
+        }
+    }
+    this->ips_scanned.insert(dst->get_address_string());
+}
+
 void ICMPScanner::recv_responses() {
     int status = 0;
     uint8_t *ether_frame = (uint8_t *) malloc (IP_MAXPACKET * sizeof (uint8_t));
@@ -97,7 +124,8 @@ void ICMPScanner::recv_responses() {
 
 
         shared_ptr<IPv4> ipv4 = make_shared<IPv4>(bitset<IPV4_BITLENGTH>(ntohl(ip->saddr)), this->network->get_netmask());
-        if(this->hosts.find(ipv4->get_address_string()) == this->hosts.end()) {
+        if (this->hosts.find(ipv4->get_address_string()) == this->hosts.end() &&
+                this->ips_scanned.find(ipv4->get_address_string()) != this->ips_scanned.end()) {
             shared_ptr<Host> host = make_shared<Host>();
             host->add_ipv4(ipv4);
             this->hosts[ipv4->get_address_string()] = host;
@@ -105,34 +133,4 @@ void ICMPScanner::recv_responses() {
     }
 
     free(ether_frame);
-}
-
-void ICMPScanner::send_request(shared_ptr<IPv4> dst, int count) {
-    static int error_counter = 0;
-    unsigned char buffer[MAXPACKET];
-    struct icmp* icp = (struct icmp*)buffer;
-    int len = 64;
-
-    icp->icmp_type = ICMP_ECHO;
-    icp->icmp_code = 0;
-    icp->icmp_cksum = 0;
-    icp->icmp_seq = count;
-    icp->icmp_id = getpid();
-
-    icp->icmp_cksum = Utils::checksum((uint16_t*)icp, len);
-
-    struct sockaddr_in to;
-    to.sin_family = AF_INET;
-    to.sin_addr.s_addr = inet_addr(dst->get_address_string().c_str());
-
-    int status = -1;
-    if ((status = sendto(this->snd_sd, buffer, len, 0, (struct sockaddr*)&to, sizeof(struct sockaddr))) < 0)  {
-        cout << flush << "\r" << endl;
-        Utils::log_warn("Cannot send ICMP request to: " + dst->get_address_string() + ": " + strerror(errno));
-
-        error_counter++;
-        if (error_counter > 8) {
-            Utils::print_error(105, "Too many errors while sending ICMP echo requests");
-        }
-    }
 }

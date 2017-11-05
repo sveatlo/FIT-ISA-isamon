@@ -45,13 +45,13 @@
 		\vspace{-0.5cm}
 		\paragraph{\texttt{-{}-interface <interface name>}} The program will use the interface identified by \emph{interface name} to perform all scans. In case this parameter is not supplied, ISAmon will use all live (in UP state) interfaces.
 		\vspace{-0.5cm}
-		\paragraph{\texttt{-{}-network <network/netmask>}} The program will perform a scan for live hosts using the appropriate scan type in the network identified by network IP and netmask. Netmask may be a number between 1 and 29 or 32. If no netmask is supplied, /32 netmask is assumed and used, which means only 1 host will be scanned. In case this parameter is not supplied, ISAmon will scan all networks on all suitable interfaces -- defined by the \texttt{-{}-interface} parameter.
+		\paragraph{\texttt{-{}-network <network/netmask>}} The program will perform a scan for live hosts using the appropriate scan type in the network identified by network IP and netmask. Netmask may be a number between 1 and 30 or 32. If no netmask is supplied, /32 netmask is assumed and used, which means only 1 host will be scanned. In case this parameter is not supplied, ISAmon will scan all networks on all suitable interfaces -- defined by the \texttt{-{}-interface} parameter.
 		\vspace{-0.5cm}
 		\paragraph{\texttt{-{}-tcp}} The program will perform a TCP port scan.
 		\vspace{-0.5cm}
 		\paragraph{\texttt{-{}-udp}} The program will perform a UDP port scan.
 		\vspace{-0.5cm}
-		\paragraph{\texttt{-{}-port}} The program will perform all port scan only on ports specified by this parameter, which can be used multiple times. In case this parameter is not supplied, the whole port range (1-65536) will be scanned.
+		\paragraph{\texttt{-{}-port}} The program will perform all port scan only on ports specified by this parameter, which can be used multiple times. In case this parameter is not supplied, the whole port range (1-65535) will be scanned.
 		\vspace{-0.5cm}
 		\paragraph{\texttt{-{}-wait <time>}} The program will wait a maximum of \emph{time} ms to wait for responses.
 

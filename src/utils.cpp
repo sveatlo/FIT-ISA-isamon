@@ -148,17 +148,18 @@ void Utils::get_local_ip(char* buf) {
 void Utils::progress_bar(float progress) {
     int barWidth = 70;
 
-    cerr << "[";
+    string bar = "[";
     int pos = barWidth * progress;
     for (int i = 0; i < barWidth; ++i) {
         if (i < pos) {
-            cerr << "=";
+            bar += "=";
         } else if (i == pos) {
-            cerr << ">";
+            bar += ">";
         } else {
-            cerr << " ";
+            bar += " ";
         }
     }
-    cerr << "] " << int(progress * 100.0) << " %\r";
+    bar += "] ";
+    cerr  << bar << int(progress * 100.0) << " %\r";
     cerr.flush();
 }

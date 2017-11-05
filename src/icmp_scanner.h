@@ -34,6 +34,11 @@ private:
      */
     shared_ptr<Interface> interface;
 
+    /**
+     * Set of IP strings to which a request was sent
+     */
+    set<string> ips_scanned;
+
     void prepare();
     void bind_sockets();
     void recv_responses();
