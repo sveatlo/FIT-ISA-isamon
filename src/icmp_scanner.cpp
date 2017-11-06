@@ -26,7 +26,7 @@ void ICMPScanner::start() {
     if (this->total == 0) {
         this->total = 1;
         this->send_request(make_shared<IPv4>(this->network->get_broadcast_address(), this->network->get_netmask()), 0);
-    } else {
+    } else if(this->total > 2) {
         this->total -= 2;
         for(auto dst = Utils::increment(this->network->get_network_address()); dst < this->network->get_broadcast_address() && this->keep_scanning; dst = Utils::increment(dst)) {
             this->send_request(make_shared<IPv4>(dst, this->network->get_netmask()), 0);

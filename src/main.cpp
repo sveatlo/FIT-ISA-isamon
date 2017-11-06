@@ -34,10 +34,6 @@ vector<pair<shared_ptr<AbstractScanner>, shared_ptr<thread>>> scanners; // vecto
 map<string, shared_ptr<Host>> live_hosts; // vector of live (responding) hosts found using one of the techniques below
 
 int main (int argc, char** argv) {
-    if(getuid()) {
-        Utils::print_error(255);
-    }
-
     // clrscr();
     try {
         run(argc, argv);
@@ -137,6 +133,11 @@ void run(int argc, char** argv) {
 
         if(ports.size() && !(arg_udp || arg_tcp)) {
             Utils::print_error(1, "Ports specified without scanning method.");
+        }
+
+
+        if(getuid()) {
+            Utils::print_error(255);
         }
 
         signal(SIGINT, interrupt_handler);
