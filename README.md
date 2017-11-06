@@ -3,6 +3,9 @@
 ## Project description
 Simple TCP/UDP network scanner created as a project assignment of the ISA course.
 
+## Author
+written by Svätopluk Hanzel <xhanze10@stud.fit.vutbr.cz>
+
 ## Usage
 isamon can scan local and non-local networks for live hosts and than perform a TCP/UDP port scan
 
