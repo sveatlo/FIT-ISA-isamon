@@ -255,7 +255,7 @@ void run(int argc, char** argv) {
             }
         }
 
-        show_progress();
+        // show_progress();
 
         for(auto scanner : scanners) {
             scanner.second->join();
@@ -284,19 +284,19 @@ void run(int argc, char** argv) {
         }
 
         if(arg_tcp) {
-            cerr << "\033[1;36;1m[INFO] Starting TCP PORT scan\033[0m\n";
+            Utils::log_info("Starting TCP PORT scan");
             // start tcp scanner
             shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<TCPScanner>(live_hosts, ports, &hosts_mtx, arg_wait, interface));
             scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
         }
         if (arg_udp) {
-            cerr << "\033[1;36;1m[INFO] Starting UDP PORT scan\033[0m\n";
+            Utils::log_info("Starting UDP PORT scan");
             // start udp scanner
             shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<UDPScanner>(live_hosts, ports, &hosts_mtx, arg_wait, interface));
             scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
         }
 
-        show_progress();
+        // show_progress();
 
         // wait for them to join back
         for(auto scanner : scanners) {
@@ -324,7 +324,7 @@ void print_help() {
 void show_progress() {
     uint8_t counter = 0;
     float percent = 0.0f;
-    while (percent < 1) {
+    while (percent < 1 && !interrupted) {
         unsigned long total = 0;
         unsigned long scanned = 0;
         for(auto scanner : scanners) {

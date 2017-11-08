@@ -26,13 +26,14 @@ void ICMPScanner::start() {
     if (this->total == 0) {
         this->total = 1;
         this->send_request(make_shared<IPv4>(this->network->get_broadcast_address(), this->network->get_netmask()), 0);
+        this->scanned++;
     } else if(this->total > 2) {
         this->total -= 2;
         for(auto dst = Utils::increment(this->network->get_network_address()); dst < this->network->get_broadcast_address() && this->keep_scanning; dst = Utils::increment(dst)) {
             this->send_request(make_shared<IPv4>(dst, this->network->get_netmask()), 0);
 
             this->scanned++;
-            usleep(1*1000); // protects before running out of buffer space
+            usleep(1000); // protects before running out of buffer space
         }
     }
     usleep(this->wait*1000);

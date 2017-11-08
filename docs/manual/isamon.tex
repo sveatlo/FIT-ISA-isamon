@@ -4,6 +4,13 @@
 \usepackage[T1]{fontenc}
 \usepackage{graphicx}
 \usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+\hypersetup{
+	colorlinks,
+	linkcolor={red!50!black},
+	citecolor={blue!50!black},
+	urlcolor={blue!80!black}
+}
 \usepackage{listings}
 \usepackage{caption}
 \usepackage[left=2cm,text={17cm,24cm},top=3cm]{geometry}
@@ -39,6 +46,8 @@
 \newpage
 
 \section{Usage}
+	Upon start ISAmon will evaluate its parameters and determine the best ways to run the scan. In case user decides to quit a running scan early, he can send ISAmon a SIGINT signal causing it to stop the scan as soon as possible and print out all the information gathered up to this point. User can also send the SIGINT signal 3 times in a row, causing ISAmon to exit immediately. This is not safe and should be avoided for as long as possible.
+		
 	\subsection{Parameters}
 		ISAmon allows a usage of several parameters, which allow specifying the behaviour desired by user.
 		\paragraph{\texttt{-{}-help}} The program will print usage help to \emph{stdout} and exit.
@@ -54,6 +63,29 @@
 		\paragraph{\texttt{-{}-port}} The program will perform all port scan only on ports specified by this parameter, which can be used multiple times. In case this parameter is not supplied, the whole port range (1-65535) will be scanned.
 		\vspace{-0.5cm}
 		\paragraph{\texttt{-{}-wait <time>}} The program will wait a maximum of \emph{time} ms to wait for responses.
+		
+	\subsection{Return codes}
+		On successfull exit, isamon returns 0 and no error message is written out.
+		In case isamon encounters an error, a non-zero error code is returned and an error message is written to stderr. Table of possible exit codes is below.\\\\
+		
+		\begin{tabular}{|l|l|}
+			\hline
+			\textbf{Code}  & \textbf{Message} \\\hline
+			1     & Invalid arguments \\\hline
+			101   & Interface error \\\hline
+			102   & Socket bind error \\\hline
+			103   & ARP scanning error \\\hline
+			104   & ARP receiving error \\\hline
+			105   & ICMP scanning error \\\hline
+			106   & ICMP receiving error \\\hline
+			107   & TCP scanning error \\\hline
+			108   & TCP receiving error \\\hline
+			109   & UDP scanning error \\\hline
+			110   & UDP receiving error \\\hline
+			150   & Cannot get MAC address for interface \\\hline
+			254   & Run isamon as root, stupid! \\\hline
+			255   & Excessive use of Ctrl+c \\\hline
+		\end{tabular}
 
 \section{Network scanning}
 	The first step in ISAmon's network scanning routine is to find all the live hosts on the network that is being scanned. Live host in this context means a host -- computer or any other network-enabled device, which responds to ISAmon's requests. ISAmon uses 2 types of scanning techniques to find live hosts: ARP and ICMP echo scanning. The best scanning technique for specific use-case is determined automatically.\\

@@ -14,7 +14,7 @@
 using namespace std;
 
 void Utils::log_info(string msg, string end) {
-    cerr << "\033[1;34m[INFO] " << msg << "\033[0m" << end;
+    cerr << "\033[1;36;1m[INFO] " << msg << "\033[0m" << end;
 }
 
 void Utils::log_warn(string msg, string end) {
@@ -118,7 +118,12 @@ uint16_t Utils::checksum(uint16_t *addr, int len) {
     return (answer);
 }
 
-// TODO: rewrite
+/**
+ * Get local IP
+ * Copyright https://github.com/jiecchen https://github.com/jiecchen/portScanner/blob/master/test.c
+ *
+ * @param buf return param
+ */
 void Utils::get_local_ip(char* buf) {
     int sock = socket ( AF_INET, SOCK_DGRAM, 0);
 
@@ -145,6 +150,13 @@ void Utils::get_local_ip(char* buf) {
     close(sock);
 }
 
+
+/**
+ * Prints out progressbar to stderr
+ * Copyright leemes https://stackoverflow.com/a/14539953/1419318
+ *
+ * @param progress progress in %
+ */
 void Utils::progress_bar(float progress) {
     int barWidth = 70;
 
@@ -160,6 +172,8 @@ void Utils::progress_bar(float progress) {
         }
     }
     bar += "] ";
-    cerr  << bar << int(progress * 100.0) << " %\r";
+    bar += int(progress * 100.0);
+    bar += " %\r";
+    cerr << bar;
     cerr.flush();
 }

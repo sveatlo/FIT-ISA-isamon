@@ -1,4 +1,4 @@
-CFLAGS=-std=c++11  -lstdc++ -lpthread -Wall -Wextra -O0 -g3
+CFLAGS=-std=c++11  -lstdc++ -lpthread -Wall -Wextra -O2
 CC=gcc
 SRC_DIR=src/
 DIST_DIR=dist/
@@ -8,7 +8,7 @@ DOCS_SOURCES=$(DOCS_DIR)manual/isamon.tex $(DOCS_DIR)manual/czechiso.bst \
 BINARY_NAME=isamon
 ARCHIVEFILENAME=dist/xhanze10.tar
 
-MODULES=utils ipv4 ipv6 mac host interface arp_scanner icmp_scanner port_scanner tcp_scanner udp_scanner
+MODULES=utils ipv4 ipv6 mac host interface abstract_scanner arp_scanner icmp_scanner port_scanner tcp_scanner udp_scanner
 OBJECT_FILE_PATTERN=$(DIST_DIR)%.o
 
 .PHONY=run all build pack docs

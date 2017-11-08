@@ -13,6 +13,8 @@ using namespace std;
  */
 class AbstractScanner {
 public:
+    virtual ~AbstractScanner();
+
     /**
      * Starts a new scan
      */
@@ -26,25 +28,19 @@ public:
     /**
      * Return the hosts from private propertt hosts
      */
-    map<string, shared_ptr<Host>> get_hosts() {
-        return this->hosts;
-    }
+    map<string, shared_ptr<Host>> get_hosts();
 
     /**
      * Get the number of all entities which are scheduled to be scanned
      * @return number of all entities which are scheduled to be scanned
      */
-    int get_total() {
-        return this->total;
-    }
+    int get_total();
 
     /**
      * Get the number of entities already scanned
      * @return number of scanned entties
      */
-    int get_scanned() {
-        return this->scanned;
-    }
+    int get_scanned();
 
 protected:
     /**

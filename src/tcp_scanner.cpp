@@ -29,7 +29,7 @@ void TCPScanner::prepare() {
     iph->version = 4;
     iph->tos = 0;
     iph->tot_len = sizeof(struct ip) + sizeof(struct tcphdr);
-    iph->id = getpid();
+    iph->id = htons(getpid());
     iph->frag_off = 0;
     iph->ttl = 64;
     iph->protocol = IPPROTO_TCP;
