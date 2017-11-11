@@ -42,10 +42,8 @@ void ARPScanner::start() {
         usleep(this->wait*1000);
     }
 
-    cout << "Finished scanning" << endl;
     this->stop();
     t.join();
-    cout << "Truly finished scanning" << endl;
 }
 
 void ARPScanner::stop() {

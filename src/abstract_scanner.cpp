@@ -3,8 +3,6 @@
 #include "abstract_scanner.h"
 
 AbstractScanner::~AbstractScanner() {
-    cout << "Destroying some scanner" << endl;
-
     close(this->snd_sd);
     close(this->rcv_sd);
 }

@@ -11,6 +11,31 @@
 #include "udp_scanner.h"
 #include "utils.h"
 
+UDPScanner::UDPScanner(map<string, shared_ptr<Host>> &_hosts, vector<int> &_ports, mutex* _hosts_mutex, int _wait, int _ratelimit, shared_ptr<Interface> _if) : PortScanner(_hosts, _ports, _hosts_mutex, _wait, _if) {
+    this->ratelimit = _ratelimit;
+}
+
+void UDPScanner::start() {
+    this->prepare();
+    thread t(&UDPScanner::recv_responses, this);
+    for(auto port : this->ports) {
+        for (auto host : this->hosts) {
+            if (!this->keep_scanning) {
+                break;
+            }
+
+            for(auto ipv4 : host.second->get_ipv4_addresses()) {
+                this->scan_udp_port(host.second, ipv4.second, port);
+            }
+        }
+
+        usleep(this->ratelimit * 1000);
+    }
+
+    usleep(this->wait * 1000);
+    this->stop();
+    t.join();
+}
 
 void UDPScanner::prepare() {
     this->bind_sockets();
@@ -63,7 +88,7 @@ void UDPScanner::bind_sockets() {
     }
 }
 
-void UDPScanner::scan_host(shared_ptr<Host> &host, shared_ptr<IPv4> &ipv4) {
+void UDPScanner::scan_udp_port(shared_ptr<Host> &host, shared_ptr<IPv4> &ipv4, int port) {
     static int port_counter = 0;
 
     char datagram[sizeof(this->buffer)];
@@ -81,39 +106,32 @@ void UDPScanner::scan_host(shared_ptr<Host> &host, shared_ptr<IPv4> &ipv4) {
     dest.sin_family = AF_INET;
     dest.sin_addr.s_addr = dest_ip.s_addr;
 
-    for(auto port : this->ports) {
-        if (!this->keep_scanning) {
-            break;
-        }
+    iph->id = htons(getuid() + (++port_counter));
+    iph->check = 0;
 
-        iph->id = htons(getuid() + (++port_counter));
-        iph->check = 0;
+    udph->dest = htons(port);
+    udph->source = htons(rand() % 4096 + 61440);
+    udph->check = 0;
 
-        udph->dest = htons(port);
-        udph->source = htons(rand() % 4096 + 61440);
-        udph->check = 0;
+    psh.saddr = iph->saddr;
+    psh.daddr = dest.sin_addr.s_addr;
+    psh.placeholder = 0;
+    psh.proto = IPPROTO_UDP;
+    psh.len = htons( sizeof(struct udphdr) );
 
-        psh.saddr = iph->saddr;
-        psh.daddr = dest.sin_addr.s_addr;
-        psh.placeholder = 0;
-        psh.proto = IPPROTO_UDP;
-        psh.len = htons( sizeof(struct udphdr) );
+    memcpy(&psh.data.udp, udph, sizeof (struct udphdr));
+    udph->check = Utils::checksum((unsigned short*)&psh, sizeof(struct pseudo_header));
 
-        memcpy(&psh.data.udp, udph, sizeof (struct udphdr));
-        udph->check = Utils::checksum((unsigned short*)&psh, sizeof(struct pseudo_header));
-
-        //Send the packet
-        if (sendto(this->snd_sd, udph, sizeof(struct udphdr), 0, (struct sockaddr*)&dest, sizeof(dest)) < 0) {
-            Utils::print_error(109);
-        }
-
-        this->hosts_mutex->lock();
-        host->set_udp_port(port, true);
-        this->hosts_mutex->unlock();
-
-        this->scanned++;
-        usleep(this->wait*1000);
+    //Send the packet
+    if (sendto(this->snd_sd, udph, sizeof(struct udphdr), 0, (struct sockaddr*)&dest, sizeof(dest)) < 0) {
+        Utils::print_error(109);
     }
+
+    this->hosts_mutex->lock();
+    host->set_udp_port(port, true);
+    this->hosts_mutex->unlock();
+
+    this->scanned++;
 }
 
 void UDPScanner::recv_responses() {

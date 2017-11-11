@@ -46,7 +46,7 @@ void run(int argc, char** argv) {
 
         int c;
         bool arg_tcp = false, arg_udp = false;
-        int arg_wait = -1;
+        int arg_wait = -1, arg_ratelimit = 0;
         vector<int> ports;
         set<string> all_interfaces;
         string arg_network;
@@ -60,12 +60,13 @@ void run(int argc, char** argv) {
                 {"network", required_argument, 0, 'n'},
                 {"port", required_argument, 0, 'p'},
                 {"wait", required_argument, 0, 'w'},
+                {"ratelimit", required_argument, 0, 'r'},
                 {0, 0, 0, 0}
             };
             /* getopt_long stores the option index here. */
             int option_index = 0;
 
-            c = getopt_long(argc, argv, "htui:n:p:w:", long_options, &option_index);
+            c = getopt_long(argc, argv, "htui:n:p:w:r:", long_options, &option_index);
 
             /* Detect the end of the options. */
             if (c == -1)
@@ -110,6 +111,14 @@ void run(int argc, char** argv) {
             case 'w':
                 try {
                     arg_wait = stoi(optarg);
+                } catch (...) {
+                    Utils::print_error(1);
+                }
+                break;
+
+            case 'r':
+                try {
+                    arg_ratelimit = stoi(optarg);
                 } catch (...) {
                     Utils::print_error(1);
                 }
@@ -255,14 +264,14 @@ void run(int argc, char** argv) {
             }
         }
 
-        // show_progress();
+        show_progress();
 
         for(auto scanner : scanners) {
             scanner.second->join();
             auto scanner_result = scanner.first->get_hosts();
             live_hosts.insert(scanner_result.begin(), scanner_result.end());
         }
-        cerr << "\033[1;36;1m[INFO] Finished scanning for live hosts. Found " << live_hosts.size() << " live hosts:\033[0m\n";
+        Utils::log_info("Finished scanning for live hosts. Found " + to_string(live_hosts.size()) + " live hosts");
 
         if(interrupted) {
             print_hosts();
@@ -292,11 +301,11 @@ void run(int argc, char** argv) {
         if (arg_udp) {
             Utils::log_info("Starting UDP PORT scan");
             // start udp scanner
-            shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<UDPScanner>(live_hosts, ports, &hosts_mtx, arg_wait, interface));
+            shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<UDPScanner>(live_hosts, ports, &hosts_mtx, arg_wait, arg_ratelimit, interface));
             scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
         }
 
-        // show_progress();
+        show_progress();
 
         // wait for them to join back
         for(auto scanner : scanners) {
@@ -311,14 +320,15 @@ void run(int argc, char** argv) {
 }
 
 void print_help() {
-    cout << "isamon [-h] [-i <interface>] [-t] [-u] [-p <port>] [-w <ms>] [-n <net_address/mask>]" << endl;
-    cout << "\t-h --help -- zobrazí nápovědu" << endl;
-    cout << "\t-i --interface <interface> -- rozhraní na kterém bude nástroj scanovat" << endl;
-    cout << "\t-n --network <net_address/mask> -- ip adresa síťe s maskou definující rozsah pro scanování" << endl;
-    cout << "\t-t --tcp -- použije TCP" << endl;
-    cout << "\t-u --udp -- použije UDP" << endl;
-    cout << "\t-p --port <port> -- specifikace scanovaného portu, pokud není zadaný, scanujte celý rozsah" << endl;
-    cout << "\t-w --wait <ms> -- dodatečná informace pro Váš nástroj jaké je maximální přípustné RTT" << endl;
+    cout << "isamon [-h] [-i <interface>] [-t] [-u] [-p <port>] [-w <ms>] [-r <ms>] [-n <net_address/mask>]" << endl;
+    cout << "  -h --help\t\t\t  Show this help" << endl;
+    cout << "  -i --interface <interface>\t  Use this interface." << endl;
+    cout << "  -n --network <net_address/mask> IP subnet or host IP to scan. Default netmask = /32 - 1 host" << endl;
+    cout << "  -t --tcp\t\t\t  Scan ports for TCP connections" << endl;
+    cout << "  -u --udp\t\t\t  Scan ports for UDP connections" << endl;
+    cout << "  -p --port <port>\t\t  Scan this port. Defaults to ports 1-65535" << endl;
+    cout << "  -w --wait <ms>\t\t  Max time in ms to wait for response. Default = 1000ms" << endl;
+    cout << "  -r --ratelimit <ms>\t\t  Time in ms in which the remote host is allowed to send 1 ICMP message. Default = 0 - no ratelimiting" << endl;
 }
 
 void show_progress() {

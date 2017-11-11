@@ -23,7 +23,7 @@ class PortScanner : public AbstractScanner {
 public:
     PortScanner(map<string, shared_ptr<Host>> &_hosts, vector<int> &_ports, mutex* _hosts_mutex, int _wait, shared_ptr<Interface> _if = nullptr);
 
-    void start();
+    virtual void start();
     void stop();
 
 protected:

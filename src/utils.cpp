@@ -172,8 +172,8 @@ void Utils::progress_bar(float progress) {
         }
     }
     bar += "] ";
-    bar += int(progress * 100.0);
-    bar += " %\r";
+    bar += to_string(int(progress * 100.0));
+    bar += " \%\r";
     cerr << bar;
     cerr.flush();
 }
