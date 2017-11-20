@@ -47,7 +47,7 @@
 
 \section{Usage}
 	Upon start ISAmon will evaluate its parameters and determine the best ways to run the scan. In case user decides to quit a running scan early, he can send ISAmon a SIGINT signal causing it to stop the scan as soon as possible and print out all the information gathered up to this point. User can also send the SIGINT signal 3 times in a row, causing ISAmon to exit immediately. This is not safe and should be avoided for as long as possible.
-		
+
 	\subsection{Parameters}
 		ISAmon allows a usage of several parameters, which allow specifying the behaviour desired by user.
 		\paragraph{\texttt{-{}-help}} The program will print usage help to \emph{stdout} and exit.
@@ -66,11 +66,11 @@
 		\vspace{-0.5cm}
 		\paragraph{\texttt{-{}-ratelimit <time>}} The program will assume the remote hosts do not send ICMP messages more often than 1 message per \emph{time}ms.
 		\paragraph{\texttt{-{}-progressbar}} The program will print out a progressbar for better user experience.
-		
+
 	\subsection{Return codes}
 		On successfull exit, isamon returns 0 and no error message is written out.
 		In case isamon encounters an error, a non-zero error code is returned and an error message is written to stderr. Table of possible exit codes is below.\\\\
-		
+
 		\begin{tabular}{|l|l|}
 			\hline
 			\textbf{Code}  & \textbf{Message} \\\hline
@@ -153,7 +153,7 @@
 			\label{fig:tcp_header}
 			\source{\href{http://intronetworks.cs.luc.edu/1/html/tcp.html}{Loyola university of Chicago}}
 		\end{figure}
-        
+
 
 	\subsection{UDP port scanning}
 		Scanning for open UDP ports is trickier because UDP is a connection-less protocol, meaning you don't get any response in case the port is open, the datagram got lost or was filtered by firewall. This leads to many possible false positives, because the only way to determine a port is closed is to wait for a ICMP \emph{destination unreachable} message, which mosts systems send only once a specific time period, for example the default ratelimit for Linux is set to 1000ms since kernel 2.4.10 \cite{man7:icmp}. This means using the \texttt{-{}-ratelimit} parameter with a value below 1000ms is not recommended when scanning for UDP ports on common Linux machines.\\
