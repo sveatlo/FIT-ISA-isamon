@@ -63,6 +63,8 @@
 		\paragraph{\texttt{-{}-port}} The program will perform all port scan only on ports specified by this parameter, which can be used multiple times. In case this parameter is not supplied, the whole port range (1-65535) will be scanned.
 		\vspace{-0.5cm}
 		\paragraph{\texttt{-{}-wait <time>}} The program will wait a maximum of \emph{time} ms to wait for responses.
+		\vspace{-0.5cm}
+		\paragraph{\texttt{-{}-ratelimit <time>}} The program will assume the remote hosts do not send ICMP messages more often than 1 message per \emph{time}ms.
 		
 	\subsection{Return codes}
 		On successfull exit, isamon returns 0 and no error message is written out.
@@ -151,7 +153,7 @@
         
 
 	\subsection{UDP port scanning}
-		Scanning for open UDP ports is trickier because UDP is a connection-less protocol, meaning you don't get any response in case the port is open, the datagram got lost or was filtered by firewall. This leads to many possible false positives, because the only way to determine a port is closed is to wait for a ICMP \emph{destination unreachable} message, which mosts systems send only once a specific time period, for example the default ratelimit for linux is set to 1000ms since kernel 2.4.10 \cite{man7:icmp}. This means using the \texttt{-{}-wait} parameter with a value below 1000ms is not recommended when scanning for UDP ports.\\
+		Scanning for open UDP ports is trickier because UDP is a connection-less protocol, meaning you don't get any response in case the port is open, the datagram got lost or was filtered by firewall. This leads to many possible false positives, because the only way to determine a port is closed is to wait for a ICMP \emph{destination unreachable} message, which mosts systems send only once a specific time period, for example the default ratelimit for Linux is set to 1000ms since kernel 2.4.10 \cite{man7:icmp}. This means using the \texttt{-{}-ratelimit} parameter with a value below 1000ms is not recommended when scanning for UDP ports on common Linux machines.\\
 		In case the scanned port is closed and the ICMP message (see figure \ref{fig:icmp}) was not rate-limited or filtered by some firewall, ISAmon receives it and parses the enclosed UDP header to determine which port is closed, otherwise ISAmon considers it to be open, which may lead to false positives.
 
 
