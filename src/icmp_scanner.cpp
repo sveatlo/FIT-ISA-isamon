@@ -33,7 +33,7 @@ void ICMPScanner::start() {
             this->send_request(make_shared<IPv4>(dst, this->network->get_netmask()), 0);
 
             this->scanned++;
-            usleep(1000); // protects before running out of buffer space
+            // usleep(1000); // protects before running out of buffer space
         }
     }
     usleep(this->wait*1000);
@@ -87,12 +87,29 @@ void ICMPScanner::send_request(shared_ptr<IPv4> dst, int count) {
     to.sin_family = AF_INET;
     to.sin_addr.s_addr = inet_addr(dst->get_address_string().c_str());
 
-    int status = -1;
-    if ((status = sendto(this->snd_sd, buffer, len, 0, (struct sockaddr*)&to, sizeof(struct sockaddr))) < 0)  {
-        if(errno == EACCES) {
-            Utils::log_warn("Cannot send ICMP request to " + dst->get_address_string() + ". Maybe broadcast address for subnet?");
+    uint8_t retries_cnt = 0;
+    while(true) {
+        retries_cnt++;
+        if (retries_cnt >= 4) {
+            Utils::log_info("Giving up after 3rd retry.");
+            Utils::print_error(105, "No buffer space available");
+        }
+
+        // Send the packet
+        if (sendto(this->snd_sd, buffer, len, 0, (struct sockaddr*)&to, sizeof(struct sockaddr)) < 0)  {
+            int my_err = errno;
+            if(my_err == EACCES) {
+                Utils::log_warn("Cannot send ICMP request to " + dst->get_address_string() + ". Maybe broadcast address for subnet?");
+                break;
+            } else if (my_err == ENOBUFS) {
+                Utils::log_warn("Ran out of buffer space, retrying after 5s");
+                usleep(5000 * 1000);
+            } else {
+                Utils::print_error(105);
+                break; // useless, but nice
+            }
         } else {
-            Utils::print_error(105);
+            break;
         }
     }
     this->ips_scanned.insert(dst->get_address_string());

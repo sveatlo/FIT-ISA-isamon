@@ -63,6 +63,9 @@
 		\paragraph{\texttt{-{}-port}} The program will perform all port scan only on ports specified by this parameter, which can be used multiple times. In case this parameter is not supplied, the whole port range (1-65535) will be scanned.
 		\vspace{-0.5cm}
 		\paragraph{\texttt{-{}-wait <time>}} The program will wait a maximum of \emph{time} ms to wait for responses.
+		\vspace{-0.5cm}
+		\paragraph{\texttt{-{}-ratelimit <time>}} The program will assume the remote hosts do not send ICMP messages more often than 1 message per \emph{time}ms.
+		\paragraph{\texttt{-{}-progressbar}} The program will print out a progressbar for better user experience.
 		
 	\subsection{Return codes}
 		On successfull exit, isamon returns 0 and no error message is written out.
@@ -129,13 +132,15 @@
 		\end{figure}
 
 		\subsubsection*{Sending ICMP echo requests}
-			During the ICMP network scan a ICMP echo request is sent to each IPv4 address in the address range being scanned using a RAW socket with ICMP protocol. Structure of the resulting IP packet can be seen on figure \ref{fig:icmp}. For echo requests both type and code is set to 0. Checksum is than computed as 16-bit ones's complement of the one's complement sum of the ICMP message starting with the ICMP Type \cite{RFC0792}.
+			During the ICMP network scan a ICMP echo request is sent to each IPv4 address in the address range being scanned using a RAW socket with ICMP protocol. Structure of the resulting IP packet can be seen on figure \ref{fig:icmp}. For echo requests both type and code is set to 0. Checksum is than computed as 16-bit ones's complement of the one's complement sum of the ICMP message starting with the ICMP Type \cite{RFC0792}.\\
+			\label{no_buffer_space} Another challenge, especially when scanning larger networks is to prevent flooding your NIC's buffer. To prevent this, ISAmon will wait up to 3 times of 5s each for the buffers to clear.
 
 		\subsubsection*{Receiving ICMP reply responses}
 			In response to ICMP echo request a echo reply is generated \cite{wiki:ping}. ISAmon catches these packets using a RAW socket with ICMP protocol and then filters them by ICMP type, code and sender IP from the IP header to match one of the IPs a ping request was sent to. Similary to receiving ARP requests (see \ref{section:arp_receiving}) this is done in a separate thread created before sending any requests.
 
 \section{Port scanning}
-	In case a \texttt{-{}-tcp} and/or \texttt{-{}-udp} parameter is specified a port scan is used a port scan is initialized using one of the techniques described below.
+	In case a \texttt{-{}-tcp} and/or \texttt{-{}-udp} parameter is specified a port scan is used a port scan is initialized using one of the techniques described below.\\
+	Running out of buffer space when sending packets is solved in similar way as with the ICMP echo scan (see \ref{no_buffer_space}).
 
 	\subsection{TCP port scanning}
 		For TCP port scanning ISAmon uses a method called TCP SYN scan\footnote{\url{https://nmap.org/nmap_doc.html\#syn}} or half-open TCP scan. Thanks to TCP's three-way handshake when ISAmon sends a TCP packet to an open port with a SYN flag set to 1 (see figure \ref{fig:tcp_header}), the other host will respond with a TCP packet with SYN and ACK flags set to 1. If no such message is sent, the port is either closed or the request was blocked by firewall, marking this port to be closed. False negatives are possible, false positives are not.\\
@@ -151,7 +156,7 @@
         
 
 	\subsection{UDP port scanning}
-		Scanning for open UDP ports is trickier because UDP is a connection-less protocol, meaning you don't get any response in case the port is open, the datagram got lost or was filtered by firewall. This leads to many possible false positives, because the only way to determine a port is closed is to wait for a ICMP \emph{destination unreachable} message, which mosts systems send only once a specific time period, for example the default ratelimit for linux is set to 1000ms since kernel 2.4.10 \cite{man7:icmp}. This means using the \texttt{-{}-wait} parameter with a value below 1000ms is not recommended when scanning for UDP ports.\\
+		Scanning for open UDP ports is trickier because UDP is a connection-less protocol, meaning you don't get any response in case the port is open, the datagram got lost or was filtered by firewall. This leads to many possible false positives, because the only way to determine a port is closed is to wait for a ICMP \emph{destination unreachable} message, which mosts systems send only once a specific time period, for example the default ratelimit for Linux is set to 1000ms since kernel 2.4.10 \cite{man7:icmp}. This means using the \texttt{-{}-ratelimit} parameter with a value below 1000ms is not recommended when scanning for UDP ports on common Linux machines.\\
 		In case the scanned port is closed and the ICMP message (see figure \ref{fig:icmp}) was not rate-limited or filtered by some firewall, ISAmon receives it and parses the enclosed UDP header to determine which port is closed, otherwise ISAmon considers it to be open, which may lead to false positives.
 
 

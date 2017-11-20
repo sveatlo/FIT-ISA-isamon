@@ -6,7 +6,7 @@ DOCS_DIR=docs/
 DOCS_SOURCES=$(DOCS_DIR)manual/isamon.tex $(DOCS_DIR)manual/czechiso.bst \
 				$(DOCS_DIR)manual/references.bib $(DOCS_DIR)manual/Makefile $(DOCS_DIR)manual/images
 BINARY_NAME=isamon
-ARCHIVEFILENAME=dist/xhanze10.tar
+ARCHIVEFILENAME=xhanze10.tar
 
 MODULES=utils ipv4 ipv6 mac host interface abstract_scanner arp_scanner icmp_scanner port_scanner tcp_scanner udp_scanner
 OBJECT_FILE_PATTERN=$(DIST_DIR)%.o

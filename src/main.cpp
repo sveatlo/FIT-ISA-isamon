@@ -29,7 +29,7 @@ void print_hosts();
 void interrupt_handler(int type);
 void show_progress();
 
-bool interrupted = false;
+bool arg_progressbar = false, interrupted = false;
 vector<pair<shared_ptr<AbstractScanner>, shared_ptr<thread>>> scanners; // vector of pairs of scanner and its thread
 map<string, shared_ptr<Host>> live_hosts; // vector of live (responding) hosts found using one of the techniques below
 
@@ -43,7 +43,6 @@ int main (int argc, char** argv) {
 }
 
 void run(int argc, char** argv) {
-
         int c;
         bool arg_tcp = false, arg_udp = false;
         int arg_wait = -1, arg_ratelimit = 0;
@@ -61,6 +60,7 @@ void run(int argc, char** argv) {
                 {"port", required_argument, 0, 'p'},
                 {"wait", required_argument, 0, 'w'},
                 {"ratelimit", required_argument, 0, 'r'},
+                {"progressbar", no_argument, 0, 'x'},
                 {0, 0, 0, 0}
             };
             /* getopt_long stores the option index here. */
@@ -131,6 +131,10 @@ void run(int argc, char** argv) {
             case 'u':
                 arg_udp = true;
                 break;
+
+            case 'x':
+                arg_progressbar = true;
+                break;
             }
         }
 
@@ -170,6 +174,10 @@ void run(int argc, char** argv) {
                 relevant_network_ip = arg_network.substr(0, pos);
             } catch(...) {
                 Utils::print_error(1, "Specified network is not in a valid format. Try something like 127.0.0.1/8");
+            }
+
+            if(relevant_network_netmask == 31) {
+                Utils::print_error(1, "Subnet mask /31 is not supported");
             }
 
             bitset<IPV4_BITLENGTH> relevant_netmask, relevant_address;
@@ -298,6 +306,7 @@ void run(int argc, char** argv) {
             shared_ptr<AbstractScanner> scanner = static_pointer_cast<AbstractScanner>(make_shared<TCPScanner>(live_hosts, ports, &hosts_mtx, arg_wait, interface));
             scanners.push_back(make_pair(scanner, make_shared<thread>(&AbstractScanner::start, scanner)));
         }
+
         if (arg_udp) {
             Utils::log_info("Starting UDP PORT scan");
             // start udp scanner
@@ -329,9 +338,14 @@ void print_help() {
     cout << "  -p --port <port>\t\t  Scan this port. Defaults to ports 1-65535" << endl;
     cout << "  -w --wait <ms>\t\t  Max time in ms to wait for response. Default = 1000ms" << endl;
     cout << "  -r --ratelimit <ms>\t\t  Time in ms in which the remote host is allowed to send 1 ICMP message. Default = 0 - no ratelimiting" << endl;
+    cout << "  --progressbar \t\t  Print progressbar during the scan for better user experience" << endl;
 }
 
 void show_progress() {
+    if(!arg_progressbar) {
+        return;
+    }
+
     uint8_t counter = 0;
     float percent = 0.0f;
     while (percent < 1 && !interrupted) {

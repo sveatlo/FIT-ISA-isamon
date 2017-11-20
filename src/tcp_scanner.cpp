@@ -96,6 +96,9 @@ void TCPScanner::scan_host(shared_ptr<Host>& host, shared_ptr<IPv4>& ipv4) {
         if (!this->keep_scanning) {
             break;
         }
+        if (port < 1 && port > 65535) {
+            continue;
+        }
 
         iph->id = htons(getuid() + (++port_counter));
         iph->check = 0;
@@ -114,9 +117,27 @@ void TCPScanner::scan_host(shared_ptr<Host>& host, shared_ptr<IPv4>& ipv4) {
         memcpy(&psh.data.tcp, tcph, sizeof (struct tcphdr));
         tcph->check = Utils::checksum((unsigned short*)&psh, sizeof(struct pseudo_header));
 
-        //Send the packet
-        if (sendto(this->snd_sd, datagram, sizeof(struct tcphdr) + sizeof(struct iphdr), 0, (struct sockaddr *) &dest, sizeof (dest)) < 0) {
-            Utils::print_error(107);
+        // wait while buffer's empty
+        uint8_t retries_cnt = 0;
+        while(true) {
+            retries_cnt++;
+            if (retries_cnt >= 4) {
+                Utils::log_info("Giving up after 3rd retry.");
+                Utils::print_error(107, "No buffer space available");
+            }
+
+            // Send the packet
+            if (sendto(this->snd_sd, datagram, sizeof(struct tcphdr) + sizeof(struct iphdr), 0, (struct sockaddr *) &dest, sizeof (dest)) < 0) {
+                if(errno == ENOBUFS) {
+                    Utils::log_warn("Ran out of buffer space, retrying after 5s");
+                    usleep(5000 * 1000);
+                } else {
+                    Utils::print_error(107);
+                    break; // useless, but nice
+                }
+            } else {
+                break;
+            }
         }
 
         this->scanned++;

@@ -122,9 +122,27 @@ void UDPScanner::scan_udp_port(shared_ptr<Host> &host, shared_ptr<IPv4> &ipv4, i
     memcpy(&psh.data.udp, udph, sizeof (struct udphdr));
     udph->check = Utils::checksum((unsigned short*)&psh, sizeof(struct pseudo_header));
 
-    //Send the packet
-    if (sendto(this->snd_sd, udph, sizeof(struct udphdr), 0, (struct sockaddr*)&dest, sizeof(dest)) < 0) {
-        Utils::print_error(109);
+    uint8_t retries_cnt = 0;
+    // wait while buffer's empty
+    while (true) {
+        retries_cnt++;
+        if (retries_cnt >= 4) {
+            Utils::log_info("Giving up after 3rd retry.");
+            Utils::print_error(109, "No buffer space available");
+        }
+
+        // Send the packet
+        if (sendto(this->snd_sd, udph, sizeof(struct udphdr), 0, (struct sockaddr*)&dest, sizeof(dest)) < 0) {
+            if(errno == ENOBUFS) {
+                Utils::log_warn("Ran out of buffer space, retrying after 5s");
+                usleep(5000 * 1000);
+            } else {
+                Utils::print_error(109);
+                break; // useless, but nice
+            }
+        } else {
+            break;
+        }
     }
 
     this->hosts_mutex->lock();
